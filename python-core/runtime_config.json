@@ -1,8 +1,8 @@
 {
   "llm": {
     "provider": "anthropic",
-    "model": "claude-sonnet-4-5-20250929",
-    "api_key": "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",
+    "model": "claude-sonnet-4-6",
+    "api_key": "",
     "enabled": true,
     "base_url": ""
   },

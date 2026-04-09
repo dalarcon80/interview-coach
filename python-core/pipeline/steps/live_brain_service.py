@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import json
 import os
 import re
@@ -10,7 +11,7 @@ from time import perf_counter
 from typing import Any, Optional
 
 from adapters.llm_adapter import AnthropicLLMAdapter, OpenAILLMAdapter, OllamaLLMAdapter, _get_runtime_config
-from contracts.models import AskIntent, BrainPlan, BrainSnapshot, InterviewerNeed, ResponseRequirement
+from contracts.models import AskIntent, BrainPlan, BrainSnapshot, InterviewerNeed, QuestionScope, ResponseRequirement
 
 
 _QUESTION_LEADS = (
@@ -24,6 +25,8 @@ _QUESTION_LEADS = (
     "tell me",
     "describe",
     "explain",
+    "summarize",
+    "summarise",
     "walk me through",
     "can you",
     "could you",
@@ -38,6 +41,8 @@ _REQUEST_INTENT_LEADS = (
     "also cover",
     "describe",
     "explain",
+    "summarize",
+    "summarise",
     "walk us through",
     "walk me through",
     "start telling us",
@@ -183,6 +188,8 @@ _COVERAGE_LEADING_NOISE_TOKENS = {
 _DANGLING_ENDS = {
     "absolutely",
     "like",
+    "more",
+    "yes",
     "also",
     "about",
     "and",
@@ -226,8 +233,25 @@ _RECOVERABLE_OPEN_TAIL_TOKENS = {
     "yeah",
     "okay",
     "ok",
+    "yes",
+    "the",
+    "a",
+    "an",
+    "this",
+    "that",
+    "it",
+    "you",
 }
 _TECHNICAL_SIGNAL_TERMS = {
+    "technology",
+    "technologies",
+    "tool",
+    "tools",
+    "tooling",
+    "framework",
+    "frameworks",
+    "language",
+    "languages",
     "architecture",
     "architect",
     "system",
@@ -307,7 +331,9 @@ _PREFERENCE_INTENSIFIERS = {
     "personally",
 }
 _PREFERENCE_SIGNAL_TERMS = {
-    "looking for",
+    "what are you looking for",
+    "are you looking for",
+    "why are you looking for a job",
     "important for you",
     "important to you",
     "what matters to you",
@@ -320,6 +346,24 @@ _PREFERENCE_SIGNAL_TERMS = {
     "open to",
     "comfortable with",
 }
+_CLARIFICATION_PROMPT_LEADS = (
+    "sounds like",
+    "so sounds like",
+    "it sounds like",
+    "so it sounds like",
+    "that sounds like",
+    "i imagine",
+    "so i imagine",
+    "so your position is",
+    "your position is",
+    "so your role is",
+    "your role is",
+    "so you're",
+    "you're",
+    "so you are",
+    "you are",
+    "that means you",
+)
 
 _ALL_QUESTION_LIKE_LEADS = tuple(dict.fromkeys([*_QUESTION_LEADS, *_REQUEST_INTENT_LEADS]))
 
@@ -480,6 +524,7 @@ class LiveBrainService:
             "ask_intents": [item.model_dump(mode="json") for item in list(plan.ask_intents or [])],
             "interviewer_need": plan.interviewer_need.model_dump(mode="json"),
             "response_requirement": plan.response_requirement.model_dump(mode="json"),
+            "question_scope": plan.question_scope.model_dump(mode="json"),
             "context_focus": list(plan.context_focus or []),
             "question_completeness": plan.question_completeness,
             "question_type": plan.question_type,
@@ -601,6 +646,12 @@ class LiveBrainService:
                 *list(previous_plan.supporting_interviewer_context or []),
             ]
         )[:6]
+        merged_referent_window = self._normalize_unique_strings(
+            [
+                *list(getattr(current_plan.question_scope, "referent_window", []) or []),
+                *list(getattr(previous_plan.question_scope, "referent_window", []) or []),
+            ]
+        )[:4]
         merged_raw_detected_asks = self._normalize_unique_strings(
             [
                 *list(current_plan.raw_detected_asks or []),
@@ -620,6 +671,18 @@ class LiveBrainService:
             alignment_brief=merged_alignment_brief,
             context_focus=merged_context_focus,
         )
+        merged_question_scope = previous_plan.question_scope.model_copy(
+            update={
+                "question_text": previous_plan.literal_question or previous_plan.resolved_question,
+                "resolved_question": previous_plan.resolved_question,
+                "referent_window": merged_referent_window,
+                "scope_confidence": max(
+                    float(previous_plan.question_scope.scope_confidence or 0.0),
+                    float(getattr(current_plan.question_scope, "scope_confidence", 0.0) or 0.0),
+                ),
+                "scope_source": "cached_stable",
+            }
+        )
 
         return previous_plan.model_copy(
             update={
@@ -634,6 +697,7 @@ class LiveBrainService:
                 "dropped_noise_clauses": merged_dropped_noise,
                 "clause_classifications": list(current_plan.clause_classifications or previous_plan.clause_classifications or [])[:8],
                 "contextualized_question": contextualized_question,
+                "question_scope": merged_question_scope,
                 "plan_source": "cached_stable",
                 "stability_state": "stable",
                 "serve_mode": (
@@ -738,13 +802,27 @@ class LiveBrainService:
                 snapshot_text=snapshot.snapshot_text,
                 clause_classifications=clause_classifications,
             )
+        local_referent_window = self._derive_local_referent_window(
+            asks=ordered_asks or ([resolved_question] if resolved_question else []),
+            resolved_question=resolved_question,
+            clause_classifications=clause_classifications,
+            snapshot_text=snapshot.snapshot_text,
+        )
+        if not local_referent_window:
+            local_referent_window = self._derive_recent_referent_window_from_history(
+                asks=ordered_asks or ([resolved_question] if resolved_question else []),
+                resolved_question=resolved_question,
+                conversation_history=snapshot.conversation_history,
+            )
 
         preserved_asks = (
             ordered_asks[:5]
             if len(ordered_asks) > 1
             else (ordered_asks[:1] if question_completeness != "complete" else ordered_asks[:5])
         )
-        context_focus = self._normalize_unique_strings(supporting_interviewer_context[:4])
+        context_focus = self._normalize_unique_strings(
+            [*list(local_referent_window or []), *list(supporting_interviewer_context or [])]
+        )[:4]
         strategy = self._infer_safe_strategy(
             asks=preserved_asks,
             coverage_points=coverage_points,
@@ -768,6 +846,7 @@ class LiveBrainService:
             answer_contract=strategy["answer_contract"],
             response_shape=response_shape,
             context_focus=context_focus,
+            candidate=candidate,
             snapshot_text=snapshot.snapshot_text,
         )
         interviewer_need = self._build_default_interviewer_need(
@@ -802,6 +881,12 @@ class LiveBrainService:
             candidate=candidate,
             snapshot_text=snapshot.snapshot_text,
         )
+        effective_candidate_context_policy, effective_company_context_policy = self._reconcile_context_policies(
+            candidate_context_policy=(strategy["candidate_context_policy"] if supports_context else "avoid"),
+            company_context_policy=(strategy["company_context_policy"] if supports_context else "avoid"),
+            profile_evidence_mode=response_requirement.profile_evidence_mode,
+            company_evidence_mode=response_requirement.company_evidence_mode,
+        )
         compatibility = self._derive_compatibility_contract(
             ordered_asks=preserved_asks,
             question_type=strategy["question_type"],
@@ -834,13 +919,9 @@ class LiveBrainService:
             question_completeness=question_completeness,
             question_type=strategy["question_type"],
             answer_contract=strategy["answer_contract"],
-            candidate_context_policy=(
-                strategy["candidate_context_policy"] if supports_context else "avoid"
-            ),
-            company_context_policy=(
-                strategy["company_context_policy"] if supports_context else "avoid"
-            ),
-            supporting_interviewer_context=supporting_interviewer_context,
+            candidate_context_policy=effective_candidate_context_policy,
+            company_context_policy=effective_company_context_policy,
+            supporting_interviewer_context=context_focus or supporting_interviewer_context,
             response_family=response_family,
             response_requirement=response_requirement,
             answer_blueprint=answer_blueprint,
@@ -855,6 +936,19 @@ class LiveBrainService:
             confidence = max(confidence, 0.62)
         if question_completeness == "garbled":
             confidence = min(confidence, 0.2)
+        question_scope = self._build_question_scope(
+            literal_question=literal_question,
+            resolved_question=resolved_question,
+            asks=preserved_asks,
+            referent_window=local_referent_window,
+            ask_intents=ask_intents,
+            response_requirement=response_requirement,
+            answer_contract=strategy["answer_contract"],
+            candidate_context_policy=effective_candidate_context_policy,
+            company_context_policy=effective_company_context_policy,
+            confidence=confidence,
+            scope_source="safe_fallback",
+        )
 
         return BrainPlan(
             session_id=snapshot.session_id,
@@ -871,6 +965,7 @@ class LiveBrainService:
             ask_intents=ask_intents[:5],
             interviewer_need=interviewer_need,
             response_requirement=response_requirement,
+            question_scope=question_scope,
             context_focus=context_focus[:4],
             response_family=response_family,
             answer_blueprint=answer_blueprint,
@@ -887,12 +982,8 @@ class LiveBrainService:
             include_profile_opening=include_profile_opening,
             evidence_depth=strategy["evidence_depth"],
             metrics_policy=strategy["metrics_policy"],
-            company_context_policy=(
-                strategy["company_context_policy"] if supports_context else "avoid"
-            ),
-            candidate_context_policy=(
-                strategy["candidate_context_policy"] if supports_context else "avoid"
-            ),
+            company_context_policy=effective_company_context_policy,
+            candidate_context_policy=effective_candidate_context_policy,
             ordered_coverage_required=ordered_coverage_required,
             target_length=target_length,
             draft_answer=draft_answer,
@@ -977,7 +1068,7 @@ class LiveBrainService:
                 alignment_brief=alignment_brief,
                 target_length=target_length,
             )
-        elif response_family in {"behavioral_story", "leadership_scope", "mixed_multi_part"}:
+        elif response_family in {"behavioral_story", "leadership_scope", "mixed_multi_part", "focused_direct"}:
             draft = self._build_blueprint_experience_draft(
                 asks=asks,
                 coverage_points=coverage_points,
@@ -1067,7 +1158,9 @@ class LiveBrainService:
             )
 
         focus_phrase = self._spoken_focus_list(normalized_points[:4])
-        wants_avoid = answer_contract == "preferences_and_anti_patterns"
+        wants_avoid = answer_contract == "preferences_and_anti_patterns" and any(
+            self._preference_boundaries_requested(ask) for ask in list(asks or [])
+        )
         company_values = self._normalize_unique_strings(company.get("values") or [])
         preferred_values = [
             self._lowercase_first(value)
@@ -1275,6 +1368,9 @@ class LiveBrainService:
             company_fragments,
             focus_terms={"data", "engineering", "architecture", "leadership", "delivery", "platform", "cloud"},
         )
+        company_scope_summary = self._build_current_company_scope_summary(candidate=candidate, role=role)
+        solution_specialization_summary = self._build_solution_specialization_summary(candidate=candidate)
+        technical_stack_summary = self._build_technical_stack_summary(candidate=candidate)
         wants_multiple_build_examples = self._seed_requests_multiple_examples(
             asks=asks,
             resolved_question=resolved_question,
@@ -1301,6 +1397,9 @@ class LiveBrainService:
                 team_primary=team_primary,
                 team_roles=team_roles,
                 company_focus=company_focus,
+                company_scope_summary=company_scope_summary,
+                solution_specialization_summary=solution_specialization_summary,
+                technical_stack_summary=technical_stack_summary,
                 supporting_interviewer_context=supporting_interviewer_context,
                 alignment_brief=alignment_brief,
             )
@@ -1347,12 +1446,25 @@ class LiveBrainService:
         team_primary: str,
         team_roles: str,
         company_focus: str,
+        company_scope_summary: str,
+        solution_specialization_summary: str,
+        technical_stack_summary: str,
         supporting_interviewer_context: list[str],
         alignment_brief: list[str],
     ) -> str:
         purpose = self._normalize_text((segment or {}).get("purpose")).lower()
         if purpose == "profile_core":
             return intro
+        if purpose == "current_company_scope":
+            sentences: list[str] = []
+            if company_scope_summary:
+                sentences.append(company_scope_summary)
+            elif solution_specialization_summary:
+                sentences.append(solution_specialization_summary)
+            primary_example = build_examples[0] if build_examples else build_primary
+            if primary_example:
+                sentences.append(self._to_spoken_sentence(primary_example, lead="A representative example is"))
+            return " ".join(sentence for sentence in sentences if sentence)
         if purpose == "alignment":
             return self._build_alignment_statement(
                 supporting_interviewer_context=supporting_interviewer_context,
@@ -1376,6 +1488,40 @@ class LiveBrainService:
             if build_outcome:
                 sentences.append(self._to_spoken_sentence(build_outcome, lead="That helped"))
             return " ".join(sentence for sentence in sentences if sentence)
+        if purpose == "role_scope_clarification":
+            sentences = []
+            if role:
+                sentences.append(
+                    f"It's not only a management role. In my current role as {role}, I lead teams and stay involved in shaping delivery, solution direction, and client decisions."
+                )
+            elif team_primary:
+                sentences.append(self._to_spoken_sentence(team_primary, lead="It's not only a management role"))
+            if build_primary:
+                sentences.append(self._to_spoken_sentence(build_primary, lead="In practice"))
+            return " ".join(sentence for sentence in sentences if sentence)
+        if purpose == "solution_specialization":
+            sentences = []
+            if solution_specialization_summary:
+                sentences.append(solution_specialization_summary)
+            primary_example = build_examples[0] if build_examples else build_primary
+            if primary_example:
+                sentences.append(self._to_spoken_sentence(primary_example, lead="A representative example is"))
+            return " ".join(sentence for sentence in sentences if sentence)
+        if purpose == "prioritization_method":
+            return (
+                "I prioritize first by business value, then by feasibility on the current stack, and then by time to measurable impact. "
+                "From there, I sequence the work into foundational items first, then the capabilities that unlock the next outcomes, and finally lower-value optimizations."
+            )
+        if purpose == "delivery_lifecycle":
+            return (
+                "I usually run it in stages: first discovery and current-state assessment, then prioritization and roadmap definition, then solution design, then iterative delivery with governance checkpoints, and finally adoption and KPI review. "
+                "That way the client sees a clear path from the initial need to measurable value."
+            )
+        if purpose == "constraint_handling":
+            return (
+                "I start with the current stack and the specific gap between what the client wants and what the platform can support today. "
+                "Then I decide whether to extend the existing stack, integrate a missing capability, or modernize a component based on value, delivery risk, and speed to impact."
+            )
         if purpose == "team_composition":
             if team_roles:
                 return f"Those teams included {team_roles}."
@@ -1392,6 +1538,21 @@ class LiveBrainService:
                 alignment_brief=alignment_brief,
                 explicit_fit=False,
             )
+        if purpose == "solution_accelerators":
+            sentences = []
+            if build_primary:
+                sentences.append(self._to_spoken_sentence(build_primary))
+            if supporting_interviewer_context:
+                sentences.append(
+                    self._build_alignment_statement(
+                        supporting_interviewer_context=supporting_interviewer_context,
+                        alignment_brief=alignment_brief,
+                        explicit_fit=False,
+                    )
+                )
+            return " ".join(sentence for sentence in sentences if sentence)
+        if purpose == "technical_stack_inventory":
+            return technical_stack_summary
         if purpose == "preferences_company_culture_team":
             return ""
         if purpose == "preferences_boundaries":
@@ -2061,6 +2222,66 @@ class LiveBrainService:
             or self._candidate_proof_fragments(candidate)
         )
 
+    def _derive_solution_area_labels(self, *, candidate: dict[str, Any]) -> list[str]:
+        seed = " ".join(
+            self._normalize_text(item)
+            for item in (
+                candidate.get("summary"),
+                candidate.get("cv_text"),
+                " ".join(str(item) for item in list(candidate.get("achievements") or [])),
+            )
+            if self._normalize_text(item)
+        ).lower()
+        labels: list[str] = []
+        if any(term in seed for term in ("data", "analytics", "ai", "genai", "governance", "bi")):
+            labels.append("data and AI transformation")
+        if any(
+            term in seed
+            for term in (
+                "modernization",
+                "applications",
+                "application",
+                "platform transformation",
+                "core banking",
+                "systems",
+                "cloud",
+                "platform",
+            )
+        ):
+            labels.append("application, platform, and core systems modernization")
+        if any(term in seed for term in ("operating model", "subscription", "delivery model", "accelerate", "reusable assets", "governance")):
+            labels.append("delivery operating models and accelerators that make execution predictable")
+        return self._normalize_unique_strings(labels)[:3]
+
+    def _build_current_company_scope_summary(self, *, candidate: dict[str, Any], role: str) -> str:
+        company = self._normalize_text(
+            candidate.get("company") or candidate.get("current_company") or candidate.get("currentCompany")
+        )
+        labels = self._derive_solution_area_labels(candidate=candidate)
+        if company and role and labels:
+            return f"At {company}, in my role as {role}, the work I lead is mainly around {self._spoken_focus_list(labels)}."
+        if company and role:
+            return f"At {company}, in my role as {role}, I lead enterprise transformation work across data, AI, and modernization."
+        if role:
+            return f"In my role as {role}, I lead enterprise transformation work across data, AI, and modernization."
+        return ""
+
+    def _build_solution_specialization_summary(self, *, candidate: dict[str, Any]) -> str:
+        labels = self._derive_solution_area_labels(candidate=candidate)
+        if labels:
+            return f"The main solution areas I specialize in are {self._spoken_focus_list(labels)}."
+        return ""
+
+    def _build_technical_stack_summary(self, *, candidate: dict[str, Any]) -> str:
+        skills = [
+            self._normalize_text(item)
+            for item in list(candidate.get("skills") or [])
+            if self._normalize_text(item)
+        ]
+        if skills:
+            return f"The technologies I work with most directly include {self._spoken_focus_list(skills[:5])}."
+        return ""
+
     def _build_current_role_orientation(self, *, candidate: dict[str, Any], role: str) -> str:
         normalized_role = self._normalize_text(role)
         company = self._normalize_text(
@@ -2080,11 +2301,11 @@ class LiveBrainService:
     ) -> str:
         support_seed = " ".join(self._normalize_text(item) for item in list(supporting_interviewer_context or [])).lower()
         if any(term in support_seed for term in ("ai", "llm", "agent", "agents", "vector", "vectors", "graph", "graphs", "knowledge")):
-            return "That is what lets me set the architecture direction for AI-ready data platforms and guide the teams building them."
+            return "A lot of my recent work has been in exactly that space: shaping AI-ready data platforms and guiding the teams building them."
         if any(term in support_seed for term in ("aws", "cloud", "infrastructure", "platform", "architecture", "design")):
-            return "That is what lets me set the direction for data platform architecture and cloud design while guiding the teams building it."
+            return "A lot of my recent work has centered on setting direction for data platform architecture and cloud design while guiding the teams building it."
         if role:
-            return f"That is why roles like {role} are a strong fit for me."
+            return f"That is the part of my background most relevant to roles like {role}."
         return ""
 
     def _fragment_repeats_intro(self, *, fragment: str, intro: str) -> bool:
@@ -2507,6 +2728,8 @@ class LiveBrainService:
             "build_evidence",
             "leadership_evidence",
             "team_scope_evidence",
+            "operating_style_evidence",
+            "client_posture_evidence",
             "culture_alignment_evidence",
             "technical_alignment_evidence",
             "supporting_metrics",
@@ -2603,6 +2826,39 @@ class LiveBrainService:
         if not normalized:
             return default
         return max(normalized, key=self._prior_context_rank)
+
+    def _reconcile_context_policies(
+        self,
+        *,
+        candidate_context_policy: str,
+        company_context_policy: str,
+        profile_evidence_mode: str,
+        company_evidence_mode: str,
+    ) -> tuple[str, str]:
+        candidate_policy = self._normalize_choice(
+            candidate_context_policy,
+            {"avoid", "support_if_relevant", "required"},
+            "support_if_relevant",
+        )
+        company_policy = self._normalize_choice(
+            company_context_policy,
+            {"avoid", "support_if_relevant", "required"},
+            "support_if_relevant",
+        )
+        normalized_profile_mode = self._normalize_profile_evidence_mode(profile_evidence_mode, "support_if_relevant")
+        normalized_company_mode = self._normalize_company_evidence_mode(company_evidence_mode, "support_if_relevant")
+
+        if normalized_profile_mode == "none":
+            candidate_policy = "avoid"
+        elif candidate_policy == "avoid":
+            candidate_policy = "support_if_relevant"
+
+        if normalized_company_mode == "none":
+            company_policy = "avoid"
+        elif company_policy == "avoid":
+            company_policy = "support_if_relevant"
+
+        return candidate_policy, company_policy
 
     @staticmethod
     def _seed_requests_multiple_examples(
@@ -2782,6 +3038,8 @@ class LiveBrainService:
         ask: str,
         question_type: str,
         answer_contract: str,
+        context_focus: Optional[list[str]] = None,
+        candidate: Optional[dict[str, Any]] = None,
         wants_multiple_examples: bool = False,
         build_from_zero_object_focus: str = "",
     ) -> tuple[str, str, str, str, list[str], str, str, str, str]:
@@ -2791,12 +3049,96 @@ class LiveBrainService:
                 "profile_positioning",
                 "professional introduction",
                 "whether the candidate's background should be trusted to lead the problem just described",
-                "Show why the background most directly proves the candidate can lead the interviewer problem, using the strongest matching proof rather than a generic biography.",
-                ["build_evidence", "technical_alignment_evidence", "role_evidence"],
+                "Show the part of the background that most directly proves the candidate can lead the interviewer problem, using one concrete anchor rather than a generic biography or a full solution pitch.",
+                ["role_evidence", "technical_alignment_evidence", "operating_style_evidence", "build_evidence"],
                 "direct_structured",
                 "one_best_proof",
                 "none",
                 "evaluation_scope",
+            )
+        if self._looks_like_delivery_lifecycle_request(ask, context_focus=context_focus or []):
+            return (
+                "delivery_lifecycle",
+                "process explanation",
+                "how the candidate runs the delivery or operating lifecycle end to end",
+                "Walk through the lifecycle in order, covering the major phases, the operating checkpoints, and how progress is measured.",
+                ["operating_style_evidence", "client_posture_evidence", "technical_alignment_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "disambiguate" if context_focus else "none",
+            )
+        if self._looks_like_constraint_handling_request(ask, context_focus=context_focus or []):
+            return (
+                "constraint_handling",
+                "constraint handling explanation",
+                "how the candidate handles client goals that exceed the current technology environment",
+                "Explain how you assess the current environment, identify the gap, and choose between extension, integration, or modernization.",
+                ["technical_alignment_evidence", "operating_style_evidence", "client_posture_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "disambiguate" if context_focus else "none",
+            )
+        if self._looks_like_current_company_scope_request(ask, candidate=candidate):
+            return (
+                "current_company_scope",
+                "company and role explanation",
+                "what the candidate's current company role actually delivers and where that work sits",
+                "Explain what your current company role delivers, then name the main kinds of client work or solution areas you lead there.",
+                ["role_evidence", "build_evidence", "client_posture_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "none",
+            )
+        if self._looks_like_role_scope_clarification_request(ask):
+            return (
+                "role_scope_clarification",
+                "role clarification",
+                "whether the candidate's role is purely managerial or also includes direct execution, solution direction, or client ownership",
+                "Correct the characterization directly, then clarify how the role balances leadership, delivery involvement, and client or commercial ownership.",
+                ["role_evidence", "operating_style_evidence", "leadership_evidence", "client_posture_evidence"],
+                "direct_structured",
+                "one_best_proof",
+                "none",
+                "support_if_relevant",
+            )
+        if self._looks_like_prioritization_request(ask):
+            return (
+                "prioritization_method",
+                "prioritization explanation",
+                "how the candidate prioritizes when there are many valid client opportunities or delivery options",
+                "State the prioritization criteria directly, then explain the ordering logic and the main trade-offs.",
+                ["operating_style_evidence", "client_posture_evidence", "role_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "none",
+            )
+        if self._looks_like_solution_specialization_request(ask, context_focus=context_focus or []):
+            return (
+                "solution_specialization",
+                "specialization explanation",
+                "what kinds of solutions the candidate actually specializes in delivering",
+                "Categorize the main solution areas directly, then anchor them with one concrete example and the business problem each solves.",
+                ["technical_alignment_evidence", "build_evidence", "role_evidence", "client_posture_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "support_if_relevant",
+            )
+        if self._looks_like_solution_accelerators_request(ask):
+            return (
+                "solution_accelerators",
+                "solution explanation",
+                "whether the candidate has reusable accelerators or a repeatable framework and can explain how it works in practice",
+                "Name the accelerator or framework directly, then explain how it operates and where human feedback, governance, or checkpoints sit.",
+                ["build_evidence", "operating_style_evidence", "technical_alignment_evidence", "role_evidence"],
+                "direct_structured",
+                "one_best_proof",
+                "none",
+                "support_if_relevant",
             )
         if self._seed_focuses_on_build_from_zero(asks=[ask]):
             if wants_multiple_examples:
@@ -2836,13 +3178,49 @@ class LiveBrainService:
                 "none",
                 "none",
             )
+        if any(term in lowered for term in ("technologies do you work with", "technology do you work with", "what technologies", "what tools", "tooling", "tech stack")):
+            return (
+                "technical_stack_inventory",
+                "technical inventory",
+                "whether the candidate can name the technologies, platforms, and tooling they actually work with",
+                "Name the technology areas and concrete platforms or tools that are directly supported by the profile, without inventing a stack.",
+                ["technical_alignment_evidence", "role_evidence"],
+                "direct_structured",
+                "one_best_proof",
+                "none",
+                "none",
+            )
+        if self._looks_like_candidate_preference_request(ask):
+            return (
+                "preferences_fit",
+                "preference statement",
+                "what environment, culture, and team conditions the candidate prefers",
+                "State the preference directly across company, culture, and team, and keep it on stated preferences and boundaries rather than biography or operating-model proof.",
+                ["company_snippets", "culture_alignment_evidence"],
+                "direct_structured",
+                "none",
+                "preference_alignment",
+                "none",
+            )
+        if self._ask_needs_prior_context(ask):
+            return (
+                "follow_up_clarification",
+                "follow-up clarification",
+                "whether the candidate can resolve the referent from the immediately preceding interviewer context and answer it directly",
+                "Resolve what the interviewer is referring to from the prior context, then answer the follow-up directly and concretely.",
+                ["technical_alignment_evidence", "operating_style_evidence", "role_evidence"],
+                "direct_structured",
+                "support_if_relevant",
+                "none",
+                "disambiguate",
+            )
         if answer_contract == "preferences_and_anti_patterns":
             return (
                 "preferences_fit",
                 "preference statement",
                 "what environment, culture, and team conditions the candidate prefers",
-                "State the preference clearly and only add boundaries or anti-patterns when asked.",
-                ["culture_alignment_evidence", "company_snippets"],
+                "State the preference directly across company, culture, and team, and keep it on stated preferences and boundaries rather than biography or operating-model proof.",
+                ["company_snippets", "culture_alignment_evidence"],
                 "direct_structured",
                 "none",
                 "preference_alignment",
@@ -2890,7 +3268,7 @@ class LiveBrainService:
                 "experience summary",
                 "whether the candidate has relevant experience and can show concrete outcomes",
                 "Use a relevant example that shows role, what was done, scale, and outcome.",
-                ["build_evidence", "leadership_evidence", "supporting_metrics"],
+                ["build_evidence", "leadership_evidence", "client_posture_evidence", "supporting_metrics"],
                 "strategic_explainer",
                 "one_best_proof",
                 "none",
@@ -2916,6 +3294,7 @@ class LiveBrainService:
         answer_contract: str,
         response_shape: str,
         context_focus: list[str],
+        candidate: Optional[dict[str, Any]] = None,
         snapshot_text: str = "",
     ) -> list[AskIntent]:
         ask_intents: list[AskIntent] = []
@@ -2942,6 +3321,8 @@ class LiveBrainService:
                 ask=ask,
                 question_type=question_type,
                 answer_contract=answer_contract,
+                context_focus=context_focus,
+                candidate=candidate,
                 wants_multiple_examples=wants_multiple_examples,
                 build_from_zero_object_focus=build_from_zero_object_focus,
             )
@@ -2978,27 +3359,74 @@ class LiveBrainService:
                 dimensions=[],
                 evidence_expected=[],
             )
-        decision_targets = self._normalize_unique_strings(
-            [
-                self._normalize_text(intent.decision_target)
+        primary_intent = next(
+            (
+                self._normalize_text(intent.ask_intent).lower()
                 for intent in list(ask_intents or [])
-                if self._normalize_text(intent.decision_target)
-            ]
+                if self._normalize_text(intent.ask_intent)
+            ),
+            "",
         )
-        if decision_targets:
-            summary = self._join_natural_phrases(decision_targets[:3])
+        ask_intent_names = {
+            self._normalize_text(intent.ask_intent).lower()
+            for intent in list(ask_intents or [])
+            if self._normalize_text(intent.ask_intent)
+        }
+        build_from_zero_focus = self._build_from_zero_object_focus_phrase(
+            asks=ordered_asks,
+            snapshot_text=snapshot_text,
+        )
+        if len(ordered_asks) == 1 and ordered_asks and self._looks_like_intro_request(ordered_asks[0]) and context_focus:
+            summary = (
+                "The interviewer wants a professional profile answer that shows whether the candidate can lead the problem just described, "
+                "set direction for the architecture or delivery work involved, and guide the teams building it, not a generic biography."
+            )
+        elif primary_intent == "build_from_zero_examples":
+            summary = (
+                f"The interviewer wants concrete build-from-zero examples, especially around {build_from_zero_focus}, "
+                "with the object built, the stage, the ownership, and the outcome made explicit."
+                if build_from_zero_focus
+                else "The interviewer wants concrete build-from-zero examples with the object built, the stage, the ownership, and the outcome made explicit."
+            )
+        elif "current_company_scope" in ask_intent_names:
+            summary = (
+                "The interviewer wants a concise explanation of what the candidate's current company role actually delivers, not a generic company pitch."
+            )
+        elif "role_scope_clarification" in ask_intent_names:
+            summary = (
+                "The interviewer wants to understand whether the candidate's role is purely managerial or still includes direct delivery direction, execution involvement, or client ownership."
+            )
+        elif "solution_specialization" in ask_intent_names:
+            summary = (
+                "The interviewer wants to understand the main solution areas the candidate actually specializes in and what those solutions solve."
+            )
+        elif "prioritization_method" in ask_intent_names:
+            summary = (
+                "The interviewer wants to hear the candidate's prioritization logic when there are many valid client opportunities or delivery options."
+            )
+        elif "delivery_lifecycle" in ask_intent_names:
+            summary = (
+                "The interviewer wants to understand the end-to-end lifecycle the candidate uses to move from client need through delivery, governance, and measurable outcome."
+            )
+        elif "constraint_handling" in ask_intent_names:
+            summary = (
+                "The interviewer wants to understand how the candidate handles client goals that exceed the current technology stack."
+            )
+        elif primary_intent == "follow_up_clarification" and any(
+            self._normalize_text(intent.prior_context_mode).lower() == "disambiguate"
+            for intent in list(ask_intents or [])
+        ):
+            summary = "The interviewer wants the candidate to resolve the referent from the immediately preceding interviewer context and answer it directly."
         elif question_type == "technical":
-            summary = "whether the candidate can set technical direction and make sound architecture decisions"
+            summary = "The interviewer wants to assess technical judgment, architecture credibility, and practical decision making."
         elif question_type == "business":
-            summary = "whether the candidate has relevant business-facing leadership experience and outcome credibility"
+            summary = "The interviewer wants to assess business impact, leadership scope, and outcome orientation."
         elif question_type == "behavioral":
-            summary = "whether the candidate has relevant experience, ownership, and concrete outcomes"
+            summary = "The interviewer wants evidence of relevant experience, ownership, and concrete outcomes."
         elif question_type == "mixed":
-            summary = "whether the candidate can address the full set of asks clearly and in order"
+            summary = "The interviewer wants the candidate to address the full set of asks in a clear and structured order."
         else:
-            summary = "whether the candidate can answer the ask directly and stay aligned to the real interviewer need"
-        if summary and not summary.lower().startswith("whether "):
-            summary = f"whether {summary[0].lower()}{summary[1:]}" if len(summary) > 1 else f"whether {summary.lower()}"
+            summary = "The interviewer wants a direct answer that stays aligned to the actual ask and supporting context."
         dimension_seed = self._derive_interviewer_evaluation_dimensions(
             context_focus=context_focus,
             coverage_points=coverage_points,
@@ -3006,9 +3434,19 @@ class LiveBrainService:
             snapshot_text=snapshot_text,
             ask_intents=ask_intents,
         )
-        if not dimension_seed:
-            dimension_seed = self._normalize_unique_strings([intent.ask_text for intent in ask_intents[:2]])
-        dimensions = dimension_seed[:4]
+        if not dimension_seed and "current_company_scope" in ask_intent_names:
+            dimension_seed = ["current company role", "main solution areas"]
+        elif not dimension_seed and "solution_specialization" in ask_intent_names:
+            dimension_seed = ["main solution areas", "business problems solved"]
+        elif not dimension_seed and "prioritization_method" in ask_intent_names:
+            dimension_seed = ["prioritization criteria", "ordering logic"]
+        elif not dimension_seed and "delivery_lifecycle" in ask_intent_names:
+            dimension_seed = ["delivery lifecycle", "governance and measurement"]
+        elif not dimension_seed and "constraint_handling" in ask_intent_names:
+            dimension_seed = ["current stack constraint", "how the gap is handled"]
+        if not dimension_seed and coverage_points:
+            dimension_seed = self._normalize_unique_strings(list(coverage_points or []))[:2]
+        dimensions = self._normalize_unique_strings(dimension_seed)[:4]
         evidence_expected = self._normalize_evidence_types(
             [evidence for intent in ask_intents for evidence in list(intent.required_evidence_types or [])]
         )[:4]
@@ -3055,8 +3493,29 @@ class LiveBrainService:
                 paragraph_plan=["One short sentence: say the full question was not caught clearly enough."],
                 style_constraints=["Keep it brief and natural.", "Do not invent or infer a missing question."],
             )
-        if len(ordered_asks) == 1 and ordered_asks and self._looks_like_intro_request(ordered_asks[0]) and context_focus:
+        if (
+            len(ordered_asks) == 1
+            and ordered_asks
+            and self._looks_like_intro_request(ordered_asks[0])
+            and context_focus
+        ):
             answer_mode = "profile_alignment"
+        elif any(
+            self._normalize_text(intent.ask_intent).lower()
+            in {
+                "current_company_scope",
+                "role_scope_clarification",
+                "solution_specialization",
+                "prioritization_method",
+                "delivery_lifecycle",
+                "constraint_handling",
+                "technical_stack_inventory",
+            }
+            for intent in list(ask_intents or [])
+        ):
+            answer_mode = "structured_direct"
+        elif len(ordered_asks) == 1 and ordered_asks and self._looks_like_candidate_background_overview_request(ordered_asks[0]):
+            answer_mode = "experience_with_outcomes"
         elif answer_contract == "architecture_walkthrough" or question_type == "technical":
             answer_mode = "technical_walkthrough"
         elif answer_contract == "preferences_and_anti_patterns":
@@ -3072,6 +3531,27 @@ class LiveBrainService:
         )
         if not evidence_priority:
             evidence_priority = ["candidate_snippets"]
+        ask_intent_names = {
+            self._normalize_text(intent.ask_intent).lower()
+            for intent in list(ask_intents or [])
+            if self._normalize_text(intent.ask_intent)
+        }
+        direct_intent = next(
+            (
+                intent_name
+                for intent_name in (
+                    "current_company_scope",
+                    "role_scope_clarification",
+                    "solution_specialization",
+                    "prioritization_method",
+                    "delivery_lifecycle",
+                    "constraint_handling",
+                    "technical_stack_inventory",
+                )
+                if intent_name in ask_intent_names
+            ),
+            "",
+        )
         profile_evidence_mode = self._merge_profile_evidence_mode(
             [intent.profile_evidence_mode for intent in list(ask_intents or [])],
             "support_if_relevant",
@@ -3084,12 +3564,14 @@ class LiveBrainService:
             [intent.prior_context_mode for intent in list(ask_intents or [])],
             "support_if_relevant",
         )
-        if candidate_context_policy == "avoid" and profile_evidence_mode == "support_if_relevant":
-            profile_evidence_mode = "none"
-        if company_context_policy == "avoid" and company_evidence_mode == "support_if_relevant":
-            company_evidence_mode = "none"
         if not context_focus:
             prior_context_mode = "none"
+        candidate_context_policy, company_context_policy = self._reconcile_context_policies(
+            candidate_context_policy=candidate_context_policy,
+            company_context_policy=company_context_policy,
+            profile_evidence_mode=profile_evidence_mode,
+            company_evidence_mode=company_evidence_mode,
+        )
         wants_multiple_examples = self._seed_requests_multiple_examples(
             asks=ordered_asks,
             snapshot_text=snapshot_text,
@@ -3139,6 +3621,7 @@ class LiveBrainService:
                     "Use one concrete proof that best matches the interviewer decision.",
                     "Only weave prior context that clarifies the problem being mapped.",
                     "Keep the answer as a professional introduction, not a generic biography.",
+                    "Do not turn the introduction into a full architecture walkthrough or a full fit pitch.",
                 ]
             )
         elif answer_mode == "technical_walkthrough":
@@ -3158,6 +3641,10 @@ class LiveBrainService:
                     "Stay on preferences and boundaries rather than drifting into profile recap.",
                 ]
             )
+            if profile_evidence_mode != "none":
+                required_moves.append(
+                    "When profile evidence supports it, ground the preference in one concrete operating style or leadership pattern."
+                )
         elif answer_mode == "experience_with_outcomes":
             required_moves.extend(
                 [
@@ -3168,11 +3655,65 @@ class LiveBrainService:
                 ]
             )
         else:
-            required_moves.extend(
-                [
-                    "Answer the asks directly and in order.",
-                    "Keep one short segment per interviewer ask when there are multiple asks.",
-                ]
+            if direct_intent == "current_company_scope":
+                required_moves.extend(
+                    [
+                        "Answer directly with what your current role delivers.",
+                        "Name the main solution areas only if they help define the scope.",
+                    ]
+                )
+            elif direct_intent == "role_scope_clarification":
+                required_moves.extend(
+                    [
+                        "Correct the characterization directly.",
+                        "Clarify how the role balances leadership, delivery involvement, and client ownership.",
+                    ]
+                )
+            elif direct_intent == "solution_specialization":
+                required_moves.extend(
+                    [
+                        "State the main solution areas directly.",
+                        "Use one concrete anchor only if it sharpens the specialization.",
+                    ]
+                )
+            elif direct_intent == "prioritization_method":
+                required_moves.extend(
+                    [
+                        "State the prioritization criteria directly.",
+                        "Explain the ordering logic briefly and clearly.",
+                    ]
+                )
+            elif direct_intent == "delivery_lifecycle":
+                required_moves.extend(
+                    [
+                        "Walk through the lifecycle in order.",
+                        "Keep the phases, checkpoints, and measurement logic explicit.",
+                    ]
+                )
+            elif direct_intent == "constraint_handling":
+                required_moves.extend(
+                    [
+                        "Answer directly how you handle the constraint.",
+                        "Explain the assessment and decision path without turning it into a full architecture lecture.",
+                    ]
+                )
+            elif direct_intent == "technical_stack_inventory":
+                required_moves.extend(
+                    [
+                        "State the main technologies and platforms directly.",
+                        "Only add detail that clarifies hands-on or delivery relevance.",
+                    ]
+                )
+            else:
+                required_moves.extend(
+                    [
+                        "Answer the asks directly and in order.",
+                        "Keep one short segment per interviewer ask when there are multiple asks.",
+                    ]
+                )
+        if prior_context_mode == "disambiguate":
+            required_moves.append(
+                "Resolve the referent from the immediately preceding interviewer context before answering the substance of the ask."
             )
         if focuses_on_build_from_zero:
             required_moves.append("For build-from-zero proof, make the object built, stage, ownership, and outcome explicit.")
@@ -3255,20 +3796,76 @@ class LiveBrainService:
                 "role and scope",
                 "what was done or led",
                 "outcome or business impact",
-                *list(contextual_dimensions or [])[:2],
             ]
-        elif answer_mode == "preferences":
-            must_cover_seed = [*list(coverage_points or [])[:3]]
-            if any("don't like" in ask.lower() or "do not like" in ask.lower() for ask in list(ordered_asks or [])):
-                must_cover_seed.append("boundaries or anti-patterns")
-        else:
+        elif prior_context_mode == "disambiguate":
             must_cover_seed = [
-                *list(coverage_points or []),
-                *[
-                    self._normalize_text(intent.decision_target) or self._normalize_text(intent.response_goal)
-                    for intent in ask_intents[:3]
-                ],
+                "resolved referent from the immediately preceding interviewer context",
+                "direct answer to the resolved ask",
             ]
+            if direct_intent == "delivery_lifecycle":
+                must_cover_seed.extend(
+                    [
+                        "major phases in order",
+                        "checkpoints and measurement",
+                    ]
+                )
+            elif direct_intent == "constraint_handling":
+                must_cover_seed.extend(
+                    [
+                        "current-state assessment",
+                        "decision path for the gap",
+                    ]
+                )
+            elif direct_intent == "prioritization_method":
+                must_cover_seed.extend(
+                    [
+                        "prioritization criteria",
+                        "ordering logic",
+                    ]
+                )
+            else:
+                must_cover_seed.extend(list(contextual_dimensions or [])[:1])
+        elif answer_mode == "preferences":
+            must_cover_seed = self._build_preference_must_cover(
+                coverage_points=coverage_points,
+                ordered_asks=ordered_asks,
+                include_anchor=profile_evidence_mode != "none",
+            )
+        else:
+            if direct_intent == "current_company_scope":
+                must_cover_seed = [
+                    "current role and scope",
+                    "what the role delivers",
+                    "main solution areas if relevant",
+                ]
+            elif direct_intent == "role_scope_clarification":
+                must_cover_seed = [
+                    "direct correction",
+                    "real balance of leadership, delivery involvement, and client ownership",
+                ]
+            elif direct_intent == "solution_specialization":
+                must_cover_seed = [
+                    "main solution areas",
+                    "what those solutions solve",
+                    "one concrete anchor only if it clarifies the specialization",
+                ]
+            elif direct_intent == "prioritization_method":
+                must_cover_seed = [
+                    "prioritization criteria",
+                    "ordering logic",
+                ]
+            elif direct_intent == "delivery_lifecycle":
+                must_cover_seed = [
+                    "major phases in order",
+                    "checkpoints and measurement",
+                ]
+            elif direct_intent == "constraint_handling":
+                must_cover_seed = [
+                    "current-state assessment",
+                    "decision path for the gap",
+                ]
+            else:
+                must_cover_seed = list(coverage_points or []) or ["direct answer"]
         if wants_multiple_examples and focuses_on_build_from_zero:
             must_cover_seed = [
                 (
@@ -3292,7 +3889,7 @@ class LiveBrainService:
                 ]
             )[:4]
         elif prior_context_mode != "none":
-            context_to_weave = self._normalize_unique_strings(list(contextual_dimensions or [])[:3])[:4]
+            context_to_weave = []
         elif wants_multiple_examples and focuses_on_build_from_zero:
             context_to_weave = self._normalize_unique_strings(
                 [
@@ -3319,6 +3916,95 @@ class LiveBrainService:
             company_evidence_mode=company_evidence_mode,
             prior_context_mode=prior_context_mode,
         )
+
+    def _build_preference_must_cover(
+        self,
+        *,
+        coverage_points: list[str],
+        ordered_asks: list[str],
+        include_anchor: bool,
+    ) -> list[str]:
+        dimensions = self._extract_preference_dimensions(
+            [*list(coverage_points or []), *list(ordered_asks or [])]
+        )
+        items: list[str] = []
+        label_map = {
+            "company": "company preferences",
+            "culture": "culture preferences",
+            "team": "team preferences",
+        }
+        for dimension in dimensions:
+            label = label_map.get(dimension)
+            if label:
+                items.append(label)
+        if any(self._preference_boundaries_requested(ask) for ask in list(ordered_asks or [])):
+            items.append("boundaries or anti-patterns")
+        if include_anchor:
+            items.append("one concrete preference anchor when supported")
+        if items:
+            return self._normalize_unique_strings(items)[:5]
+        fallback = [self._normalize_text(point) for point in list(coverage_points or []) if self._normalize_text(point)]
+        if include_anchor:
+            fallback.append("one concrete preference anchor when supported")
+        return self._normalize_unique_strings(fallback)[:5]
+
+    def _extract_preference_dimensions(self, values: list[str]) -> list[str]:
+        dimensions: list[str] = []
+        for value in list(values or []):
+            lowered = self._normalize_text(value).lower()
+            if not lowered:
+                continue
+            if "company" in lowered and "company" not in dimensions:
+                dimensions.append("company")
+            if "culture" in lowered and "culture" not in dimensions:
+                dimensions.append("culture")
+            if any(token in lowered for token in ("team", "teams")) and "team" not in dimensions:
+                dimensions.append("team")
+        return dimensions[:3]
+
+    def _preference_boundaries_requested(self, ask: str) -> bool:
+        lowered = self._normalize_text(ask).lower()
+        return any(
+            phrase in lowered
+            for phrase in (
+                "don't like",
+                "do not like",
+                "not like",
+                "avoid",
+                "anti-pattern",
+                "anti pattern",
+            )
+        )
+
+    def _build_preference_contextualized_question(
+        self,
+        *,
+        response_requirement: ResponseRequirement,
+        fallback_focus_text: str,
+    ) -> str:
+        must_cover_items = self._normalize_unique_strings(list(response_requirement.must_cover or []))
+        dimensions = self._extract_preference_dimensions(must_cover_items)
+        wants_boundaries = any(
+            "boundar" in item.lower() or "anti-pattern" in item.lower() or "anti pattern" in item.lower()
+            for item in must_cover_items
+        )
+        dimension_phrases = {
+            "company": "what you want in the company",
+            "culture": "what you value in the culture",
+            "team": "how you want the team to operate",
+        }
+        focus_clause = self._join_natural_phrases(
+            [dimension_phrases[dimension] for dimension in dimensions if dimension in dimension_phrases]
+        )
+        if focus_clause:
+            sentence = f"Answer directly by stating {focus_clause}"
+        else:
+            focus_phrase = fallback_focus_text or "the company, culture, and team environment you want"
+            sentence = f"Answer directly by stating what you want in {focus_phrase}"
+        if wants_boundaries:
+            sentence += ", and what you want to avoid"
+        sentence += ". Keep the answer on stated preferences and boundaries rather than background recap"
+        return sentence.rstrip(".") + "."
 
     def _derive_context_dimensions(
         self,
@@ -3349,14 +4035,35 @@ class LiveBrainService:
         ask_intents: list[AskIntent],
     ) -> dict[str, Any]:
         answer_mode = self._normalize_text(response_requirement.answer_mode).lower()
+        ask_intent_names = {
+            self._normalize_text(intent.ask_intent).lower()
+            for intent in list(ask_intents or [])
+            if self._normalize_text(intent.ask_intent)
+        }
         if answer_mode == "profile_alignment":
             response_family = "intro_alignment"
+        elif ask_intent_names & {
+            "current_company_scope",
+            "role_scope_clarification",
+            "solution_specialization",
+            "prioritization_method",
+            "delivery_lifecycle",
+            "constraint_handling",
+            "technical_stack_inventory",
+        }:
+            response_family = "mixed_multi_part" if len(list(ordered_asks or [])) > 1 else "focused_direct"
         elif answer_mode == "technical_walkthrough" or question_type == "technical" or answer_contract == "architecture_walkthrough":
             response_family = "technical_fit"
         elif answer_mode == "preferences" or answer_contract == "preferences_and_anti_patterns":
             response_family = "culture_preferences"
         elif len(list(ordered_asks or [])) > 1:
             response_family = "mixed_multi_part"
+        elif (
+            answer_mode == "structured_direct"
+            and self._normalize_text(response_requirement.prior_context_mode).lower() == "disambiguate"
+            and self._normalize_text(response_requirement.profile_evidence_mode).lower() != "none"
+        ):
+            response_family = "behavioral_story"
         elif answer_mode == "experience_with_outcomes" or question_type in {"behavioral", "business"}:
             response_family = "behavioral_story"
         else:
@@ -3393,6 +4100,65 @@ class LiveBrainService:
         )[:6]
 
         blueprint: list[dict[str, Any]] = []
+        if answer_contract == "preferences_and_anti_patterns":
+            preference_dimensions = self._extract_preference_dimensions(
+                list(response_requirement.must_cover or [])
+            )
+            if "company" in preference_dimensions:
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="preferences_company",
+                        ask_refs=[item for item in list(ordered_asks or []) if self._normalize_text(item)][:1],
+                        required_elements=["company preferences"],
+                        preferred_evidence_types=["company_snippets", "culture_alignment_evidence"],
+                        avoid_topics=["career_biography", "generic_company_pitch"],
+                        target_sentence_count=1,
+                    )
+                )
+            if "culture" in preference_dimensions:
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="preferences_culture",
+                        ask_refs=[item for item in list(ordered_asks or []) if self._normalize_text(item)][:1],
+                        required_elements=["culture preferences"],
+                        preferred_evidence_types=["company_snippets", "culture_alignment_evidence"],
+                        avoid_topics=["career_biography", "unsupported_metrics"],
+                        target_sentence_count=1,
+                    )
+                )
+            if "team" in preference_dimensions:
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="preferences_team",
+                        ask_refs=[item for item in list(ordered_asks or []) if self._normalize_text(item)][:1],
+                        required_elements=["team preferences", "how the team should operate"],
+                        preferred_evidence_types=["company_snippets", "culture_alignment_evidence"],
+                        avoid_topics=["career_biography", "leadership_scope_detour"],
+                        target_sentence_count=1,
+                    )
+                )
+            if any(
+                "boundar" in item.lower() or "anti-pattern" in item.lower() or "anti pattern" in item.lower()
+                for item in list(response_requirement.must_cover or [])
+            ):
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="preferences_boundaries",
+                        ask_refs=[item for item in list(ordered_asks or []) if self._normalize_text(item)][-1:],
+                        required_elements=["boundaries or anti-patterns"],
+                        preferred_evidence_types=["culture_alignment_evidence"],
+                        avoid_topics=["achievement_dump"],
+                        target_sentence_count=1,
+                    )
+                )
+            if blueprint:
+                return {
+                    "response_family": response_family,
+                    "alignment_brief": alignment_brief,
+                    "quality_guardrails": self._normalize_unique_strings(guardrails)[:6],
+                    "answer_blueprint": blueprint[:4],
+                    "delivery_instructions": delivery_instructions,
+                }
         for intent in list(ask_intents or []):
             ask_text = self._normalize_text(intent.ask_text)
             if not ask_text:
@@ -3401,6 +4167,22 @@ class LiveBrainService:
             lowered_intent = self._normalize_text(intent.ask_intent).lower()
             if self._looks_like_intro_request(ask_text):
                 purpose = "intro_tail" if len(list(ordered_asks or [])) > 1 else "profile_core"
+            elif lowered_intent == "current_company_scope":
+                purpose = "current_company_scope"
+            elif lowered_intent == "role_scope_clarification":
+                purpose = "role_scope_clarification"
+            elif lowered_intent == "solution_specialization":
+                purpose = "solution_specialization"
+            elif lowered_intent == "prioritization_method":
+                purpose = "prioritization_method"
+            elif lowered_intent == "delivery_lifecycle":
+                purpose = "delivery_lifecycle"
+            elif lowered_intent == "constraint_handling":
+                purpose = "constraint_handling"
+            elif lowered_intent == "technical_stack_inventory":
+                purpose = "technical_stack_inventory"
+            elif lowered_intent == "solution_accelerators":
+                purpose = "solution_accelerators"
             elif "team_composition" in lowered_intent or any(term in lowered_ask for term in ("roles did they have", "role did they have", "team composition")):
                 purpose = "team_composition"
             elif "leadership" in lowered_intent or any(term in lowered_ask for term in ("team management", "teams you've managed", "how big were the teams", "team scope")):
@@ -3608,8 +4390,26 @@ class LiveBrainService:
         confidence = float(payload.get("confidence") or 0.5)
         confidence = max(0.0, min(confidence, 1.0))
         context_focus = self._normalize_unique_strings(payload.get("context_focus") or [])
+        local_referent_window = self._derive_local_referent_window(
+            asks=ordered_asks or ([resolved_question] if resolved_question else []),
+            resolved_question=resolved_question,
+            clause_classifications=safe_clause_classifications,
+            snapshot_text=snapshot.snapshot_text,
+        )
+        if not local_referent_window:
+            local_referent_window = self._derive_recent_referent_window_from_history(
+                asks=ordered_asks or ([resolved_question] if resolved_question else []),
+                resolved_question=resolved_question,
+                conversation_history=snapshot.conversation_history,
+            )
+        if local_referent_window:
+            context_focus = self._normalize_unique_strings(
+                [*list(local_referent_window or []), *list(context_focus or [])]
+            )[:4]
         if not context_focus:
-            context_focus = self._normalize_unique_strings(safe_supporting_interviewer_context[:4])
+            context_focus = self._normalize_unique_strings(
+                [*list(local_referent_window or []), *list(safe_supporting_interviewer_context or [])]
+            )[:4]
         ask_intents = self._normalize_payload_ask_intents(
             values=payload.get("ask_intents") or [],
             ordered_asks=ordered_asks,
@@ -3652,6 +4452,12 @@ class LiveBrainService:
             avoid_hints=self._normalize_unique_strings(payload.get("quality_guardrails") or []),
             candidate=normalized_candidate,
             snapshot_text=snapshot.snapshot_text,
+        )
+        candidate_context_policy, company_context_policy = self._reconcile_context_policies(
+            candidate_context_policy=candidate_context_policy,
+            company_context_policy=company_context_policy,
+            profile_evidence_mode=response_requirement.profile_evidence_mode,
+            company_evidence_mode=response_requirement.company_evidence_mode,
         )
         compatibility = self._derive_compatibility_contract(
             ordered_asks=ordered_asks,
@@ -3698,6 +4504,19 @@ class LiveBrainService:
                 alignment_brief=alignment_brief,
                 context_focus=context_focus,
             )
+        question_scope = self._build_question_scope(
+            literal_question=literal_question,
+            resolved_question=resolved_question,
+            asks=ordered_asks or ([resolved_question] if resolved_question else []),
+            referent_window=local_referent_window,
+            ask_intents=ask_intents,
+            response_requirement=response_requirement,
+            answer_contract=answer_contract,
+            candidate_context_policy=candidate_context_policy,
+            company_context_policy=company_context_policy,
+            confidence=confidence,
+            scope_source="llm_fast",
+        )
 
         return BrainPlan(
             session_id=snapshot.session_id,
@@ -3714,6 +4533,7 @@ class LiveBrainService:
             ask_intents=ask_intents[:5],
             interviewer_need=interviewer_need,
             response_requirement=response_requirement,
+            question_scope=question_scope,
             context_focus=context_focus[:4],
             response_family=response_family,
             answer_blueprint=answer_blueprint[:5],
@@ -4247,7 +5067,10 @@ JSON schema:
             for clause_candidate in clause_candidates:
                 normalized = self._trim_to_question_lead(self._normalize_text(clause_candidate)).strip(" ,")
                 normalized = self._canonicalize_safe_ask_text(normalized)
-                if not normalized or not self._looks_like_question_clause(normalized):
+                if not normalized or (
+                    not self._looks_like_question_clause(normalized)
+                    and not self._looks_like_candidate_clarification_prompt(normalized)
+                ):
                     continue
                 generated_asks.append(normalized)
             clause_record["generated_asks"] = generated_asks[:4]
@@ -4255,7 +5078,10 @@ JSON schema:
             for generated in generated_asks:
                 raw_detected.append(generated)
                 score = self._question_clause_score(generated)
-                complete = self._is_complete_question_clause(generated)
+                complete = (
+                    self._is_complete_question_clause(generated)
+                    or self._looks_like_candidate_clarification_prompt(generated)
+                )
                 if complete and score >= 2.0:
                     if generated not in accepted:
                         accepted.append(generated)
@@ -4373,6 +5199,8 @@ JSON schema:
         lowered = normalized.lower()
         if not lowered:
             return False
+        if self._looks_like_candidate_clarification_prompt(normalized):
+            return True
         if (
             self._looks_like_supporting_interviewer_context(normalized)
             and not any(lowered.startswith(prefix) for prefix in _REQUEST_INTENT_LEADS)
@@ -4456,6 +5284,512 @@ JSON schema:
                 best = ask
         return best if best_score >= 2.0 else ""
 
+    @staticmethod
+    def _looks_like_low_signal_clause(text: str) -> bool:
+        normalized = LiveBrainService._normalize_text(text)
+        lowered = normalized.lower().strip(" ,")
+        if not lowered:
+            return True
+        tokens = re.findall(r"[a-z0-9']+", lowered)
+        if len(tokens) <= 1:
+            return True
+        low_signal_tokens = _QUESTION_SPLIT_CONNECTORS | {
+            "okay",
+            "ok",
+            "right",
+            "yeah",
+            "mhmm",
+            "hmm",
+            "uh",
+            "um",
+        }
+        return all(token in low_signal_tokens for token in tokens)
+
+    def _has_substantive_context_payload(self, text: str) -> bool:
+        normalized = self._normalize_text(text)
+        if not normalized:
+            return False
+        if self._extract_coverage_points_from_text(normalized):
+            return True
+        tokens = [
+            token
+            for token in re.findall(r"[a-z0-9']+", normalized.lower())
+            if token not in _COVERAGE_STOPWORDS and token not in _QUESTION_SPLIT_CONNECTORS
+        ]
+        if len(tokens) >= 5:
+            return True
+        meaningful_terms = {
+            "stack",
+            "technology",
+            "client",
+            "clients",
+            "model",
+            "models",
+            "subscription",
+            "operating",
+            "process",
+            "tool",
+            "tools",
+            "solution",
+            "solutions",
+            "specialize",
+            "specialization",
+            "prioritize",
+            "priority",
+            "governance",
+            "strategy",
+            "delivery",
+            "framework",
+            "accelerator",
+            "accelerators",
+            "lifecycle",
+        }
+        return bool(set(tokens) & meaningful_terms)
+
+    def _derive_local_referent_window(
+        self,
+        *,
+        asks: list[str],
+        resolved_question: str,
+        clause_classifications: Optional[list[dict[str, Any]]] = None,
+        snapshot_text: str = "",
+    ) -> list[str]:
+        targets = self._normalize_unique_strings(list(asks or []) or ([resolved_question] if resolved_question else []))
+        if not targets:
+            return []
+        if not any(self._ask_needs_prior_context(target) for target in targets):
+            return []
+
+        normalized_classifications = list(clause_classifications or [])
+        if not normalized_classifications:
+            clauses = self._merge_question_continuations(self._split_candidate_clauses(snapshot_text))
+            for index, clause in enumerate(clauses):
+                normalized_clause = self._normalize_text(clause)
+                if not normalized_clause:
+                    continue
+                normalized_classifications.append(
+                    {
+                        "text": normalized_clause,
+                        "function": self._classify_clause_function(
+                            clause=normalized_clause,
+                            index=index,
+                            total=len(clauses),
+                        ),
+                        "generated_asks": [],
+                    }
+                )
+
+        target_indices: list[int] = []
+        for index, record in enumerate(normalized_classifications):
+            record_text = self._normalize_text(record.get("text"))
+            generated = [
+                self._normalize_text(item)
+                for item in list(record.get("generated_asks") or [])
+                if self._normalize_text(item)
+            ]
+            candidates = [record_text, *generated]
+            if any(
+                self._asks_semantically_overlap(target, candidate)
+                for target in targets
+                for candidate in candidates
+                if candidate
+            ):
+                target_indices.append(index)
+
+        if not target_indices:
+            for index in range(len(normalized_classifications) - 1, -1, -1):
+                if self._normalize_text(normalized_classifications[index].get("function")) == "actionable_ask":
+                    target_indices.append(index)
+                    break
+        if not target_indices:
+            return []
+
+        referent_window: list[str] = []
+        seen: set[str] = set()
+
+        def _maybe_add(record: dict[str, Any]) -> None:
+            text = self._normalize_text(record.get("text"))
+            if not text:
+                return
+            lowered = text.lower()
+            if lowered in seen:
+                return
+            if self._looks_like_low_signal_clause(text):
+                return
+            if self._looks_like_meta_handoff_clause(text) or self._looks_like_interviewer_self_context(text):
+                return
+            if any(self._asks_semantically_overlap(text, target) for target in targets):
+                return
+            function = self._normalize_text(record.get("function"))
+            if function != "actionable_ask" and self._question_clause_score(text) < 0 and not self._has_substantive_context_payload(text):
+                return
+            if function == "actionable_ask" and self._is_complete_question_clause(text):
+                return
+            seen.add(lowered)
+            referent_window.append(text)
+
+        for target_index in target_indices[:2]:
+            for offset in range(1, 4):
+                prev_index = target_index - offset
+                if prev_index >= 0:
+                    _maybe_add(normalized_classifications[prev_index])
+                next_index = target_index + offset
+                if next_index < len(normalized_classifications):
+                    _maybe_add(normalized_classifications[next_index])
+                if len(referent_window) >= 4:
+                    break
+            if len(referent_window) >= 4:
+                break
+
+        return self._normalize_unique_strings(referent_window)[:4]
+
+    def _derive_recent_referent_window_from_history(
+        self,
+        *,
+        asks: list[str],
+        resolved_question: str,
+        conversation_history: list[dict[str, Any]],
+    ) -> list[str]:
+        targets = self._normalize_unique_strings(list(asks or []) or ([resolved_question] if resolved_question else []))
+        if not targets:
+            return []
+        if not any(self._ask_needs_prior_context(target) for target in targets):
+            return []
+
+        interviewer_clauses: list[str] = []
+        for turn in list(conversation_history or []):
+            text = self._normalize_text(turn.get("text") or turn.get("content") or "")
+            if self._normalize_text(turn.get("speaker")).lower() != "interviewer" or not text:
+                continue
+            clauses = self._merge_question_continuations(self._split_candidate_clauses(text))
+            interviewer_clauses.extend(
+                self._normalize_text(clause)
+                for clause in list(clauses or [])
+                if self._normalize_text(clause)
+            )
+        if not interviewer_clauses:
+            return []
+
+        referent_window: list[str] = []
+        seen: set[str] = set()
+        for text in reversed(interviewer_clauses):
+            lowered = text.lower()
+            if lowered in seen:
+                continue
+            if self._looks_like_low_signal_clause(text):
+                continue
+            if self._looks_like_meta_handoff_clause(text) or self._looks_like_interviewer_self_context(text):
+                continue
+            if any(self._asks_semantically_overlap(text, target) for target in targets):
+                continue
+            if self._question_clause_score(text) < 0 and not self._has_substantive_context_payload(text):
+                continue
+            seen.add(lowered)
+            referent_window.append(text)
+            if len(referent_window) >= 4:
+                break
+
+        return self._normalize_unique_strings(referent_window)[:4]
+
+    @staticmethod
+    def _looks_like_candidate_preference_request(text: str) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        if any(
+            phrase in lowered
+            for phrase in (
+                "what are you looking for",
+                "are you looking for",
+                "why are you looking for a job",
+                "important for you",
+                "important to you",
+                "what matters to you",
+                "what matters most",
+                "what do you avoid",
+                "what don't you like",
+                "what do you absolutely not like",
+                "do not like",
+                "don't like",
+                "anti-pattern",
+                "anti pattern",
+            )
+        ):
+            return True
+        if any(
+            phrase in lowered
+            for phrase in (
+                "what we were looking for",
+                "what we're looking for",
+                "what we are looking for",
+                "we were looking for",
+                "we're looking for",
+                "we are looking for",
+                "looking for someone who",
+            )
+        ):
+            return False
+        if re.search(
+            r"\bwhat\b.*\b(company|culture|team|teams|environment|role|scope|stakeholders|operating model)\b.*\b(important|matters|looking for)\b",
+            lowered,
+        ):
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_role_scope_clarification_request(text: str) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        clarification_prompt = (
+            lowered.startswith(
+                (
+                    "does that mean",
+                    "would that mean",
+                    "it sounds like",
+                    "so it sounds like",
+                    "that sounds like",
+                    "so you're",
+                    "so you are",
+                )
+            )
+            or LiveBrainService._looks_like_candidate_clarification_prompt(lowered)
+        )
+        if not clarification_prompt:
+            return False
+        return any(
+            term in lowered
+            for term in (
+                "manager",
+                "management",
+                "leadership",
+                "role",
+                "position",
+                "scope",
+                "teams",
+                "delivery",
+                "execution",
+                "projects",
+                "hands-on",
+                "hands on",
+                "client",
+                "commercial",
+                "strategic",
+            )
+        )
+
+    @staticmethod
+    def _looks_like_current_company_scope_request(text: str, *, candidate: Optional[dict[str, Any]] = None) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        company_name = LiveBrainService._normalize_text(
+            (candidate or {}).get("company")
+            or (candidate or {}).get("current_company")
+            or (candidate or {}).get("currentCompany")
+        ).lower()
+        if not company_name:
+            return False
+        if company_name not in lowered:
+            return False
+        explanation_signal = bool(
+            re.search(r"\b(?:tell|say|explain|describe|talk|walk)\b", lowered)
+            or lowered.startswith(("what ", "how ", "so what ", "so how "))
+        )
+        scope_signal = any(
+            term in lowered
+            for term in (
+                "about",
+                "there",
+                "role",
+                "work",
+                "do",
+                "deliver",
+            )
+        )
+        return explanation_signal and scope_signal
+
+    @staticmethod
+    def _looks_like_solution_specialization_request(text: str, *, context_focus: list[str]) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        focus_seed = " ".join(LiveBrainService._normalize_text(item).lower() for item in list(context_focus or []))
+        if not lowered and not focus_seed:
+            return False
+        specialization_anchor = any(
+            term in lowered
+            for term in (
+                "specializ",
+                "solution",
+                "solutions",
+                "deliver",
+                "delivering",
+                "more frequently",
+                "more often",
+            )
+        )
+        if LiveBrainService._looks_like_short_follow_up_request(lowered) and not specialization_anchor:
+            return False
+        solution_terms = (
+            "solution",
+            "solutions",
+            "deliver",
+            "delivering",
+            "specializ",
+            "specialization",
+            "focus area",
+            "what you solve",
+            "what do you solve",
+        )
+        categorization_terms = (
+            "type",
+            "types",
+            "kind",
+            "kinds",
+            "category",
+            "categorize",
+            "main",
+            "primarily",
+            "more frequently",
+            "more often",
+            "specializ",
+        )
+        has_solution_focus = any(term in lowered for term in solution_terms) or any(
+            term in focus_seed
+            for term in (
+                "solution",
+                "solutions",
+                "specializ",
+                "customers come to you",
+                "delivering",
+                "what exactly",
+            )
+        )
+        has_categorization_focus = any(term in lowered for term in categorization_terms) or any(
+            term in focus_seed
+            for term in (
+                "type of solutions",
+                "specializ",
+                "more frequently",
+                "more often",
+            )
+        )
+        return ("specializ" in lowered and has_categorization_focus) or (has_solution_focus and has_categorization_focus)
+
+    @staticmethod
+    def _looks_like_prioritization_request(text: str) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        explicit_priority = bool(
+            re.search(r"\bprioriti[sz]|sequence|order|rank|where do you start|what comes first|focus first\b", lowered)
+        )
+        overloaded_choice_set = bool(
+            re.search(
+                r"\b(?:many|multiple|different|several|so many)\b.*\b(?:options?|things|opportunities|improvements|paths|problems)\b",
+                lowered,
+            )
+        )
+        return explicit_priority or (
+            lowered.startswith(("how ", "so how ", "when "))
+            and overloaded_choice_set
+        )
+
+    @staticmethod
+    def _looks_like_constraint_handling_request(text: str, *, context_focus: list[str]) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        focus_seed = " ".join(LiveBrainService._normalize_text(item).lower() for item in list(context_focus or []))
+        if not lowered and not focus_seed:
+            return False
+        asks_handling = any(
+            term in lowered
+            for term in (
+                "address",
+                "handle",
+                "deal with",
+                "approach",
+                "respond to",
+                "navigate",
+            )
+        )
+        environment_terms = ("stack", "platform", "tools", "environment", "system", "systems")
+        gap_terms = ("cannot", "can't", "unable", "gap", "constraint", "limited", "not support", "missing")
+        environment_in_focus = any(term in focus_seed for term in environment_terms)
+        gap_in_focus = any(term in focus_seed for term in gap_terms)
+        stack_gap_focus = environment_in_focus and (
+            gap_in_focus
+            or "that" in lowered
+        )
+        return lowered.startswith(("how ", "so how ", "what do you do")) and asks_handling and stack_gap_focus
+
+    @staticmethod
+    def _looks_like_delivery_lifecycle_request(text: str, *, context_focus: list[str]) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        focus_seed = " ".join(LiveBrainService._normalize_text(item).lower() for item in list(context_focus or []))
+        if not lowered and not focus_seed:
+            return False
+        phase_terms = ("lifecycle", "life cycle", "process", "stages", "step by step", "end to end", "flow")
+        delivery_terms = ("client", "delivery", "governance", "roadmap", "implementation", "operating", "program")
+        return any(term in lowered for term in phase_terms) and (
+            any(term in lowered for term in delivery_terms)
+            or any(term in focus_seed for term in delivery_terms)
+        )
+
+    @staticmethod
+    def _looks_like_solution_accelerators_request(text: str) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        return any(
+            phrase in lowered
+            for phrase in (
+                "accelerator",
+                "accelerators",
+                "framework",
+                "frameworks",
+                "human in the loop",
+            )
+        )
+
+    @staticmethod
+    def _looks_like_short_follow_up_request(text: str) -> bool:
+        normalized = LiveBrainService._normalize_text(text)
+        lowered = normalized.lower()
+        if not lowered:
+            return False
+        if LiveBrainService._looks_like_intro_request(lowered):
+            return False
+        if LiveBrainService._looks_like_candidate_background_overview_request(lowered):
+            return False
+        if lowered.startswith(("what's ", "how's ", "why's ", "where's ", "who's ", "when's ", "is it ", "is this ", "is that ")):
+            return True
+        tokens = re.findall(r"[a-z0-9']+", lowered)
+        if not tokens or len(tokens) > 12:
+            return False
+        if tokens[0] in {"what", "how", "why", "when", "where", "who", "which", "is", "are", "does", "do", "can", "could", "would"}:
+            if len(tokens) <= 6:
+                return True
+            if any(token in {"that", "this", "it", "them", "they", "others", "exactly", "specifically", "mean"} for token in tokens[1:]):
+                return True
+        return bool(re.search(r"\b(exactly|specifically|mean)\b", lowered))
+
+    @staticmethod
+    def _ask_needs_prior_context(text: str) -> bool:
+        lowered = LiveBrainService._normalize_text(text).lower()
+        if not lowered:
+            return False
+        if LiveBrainService._looks_like_role_scope_clarification_request(lowered):
+            return True
+        if LiveBrainService._looks_like_solution_accelerators_request(lowered):
+            return True
+        if LiveBrainService._looks_like_short_follow_up_request(lowered):
+            return True
+        return bool(
+            re.search(
+                r"^(?:how|why|what|which|who|do|does|did|is|are|can|could|would|have|has|had)\b.*\b(that|this|it|those|them|they|others|exactly|specifically|mean)\b",
+                lowered,
+            )
+        )
+
     def _extract_coverage_points(self, asks: list[str]) -> list[str]:
         points: list[str] = []
         seen: set[str] = set()
@@ -4475,12 +5809,14 @@ JSON schema:
         lowered = normalized.lower()
         segment = ""
         for marker in _COVERAGE_MARKERS:
+            if marker == "for" and not self._looks_like_candidate_preference_request(normalized):
+                continue
             token = f"{marker} "
             idx = lowered.find(token)
             if idx >= 0:
                 segment = normalized[idx + len(token):]
                 break
-        if not segment and "looking for " in lowered:
+        if not segment and self._looks_like_candidate_preference_request(normalized) and "looking for " in lowered:
             idx = lowered.find("looking for ")
             segment = normalized[idx + len("looking for "):]
         if not segment:
@@ -4513,6 +5849,96 @@ JSON schema:
                 continue
             points.append(" ".join(filtered_tokens))
         return points
+
+    def _derive_context_focus_from_history(
+        self,
+        *,
+        conversation_history: list[dict[str, Any]],
+        asks: list[str],
+    ) -> list[str]:
+        # Stable live behavior works better when the current ask is resolved
+        # from the active window only. Prior interviewer turns remain in
+        # conversation history but are not injected into the question focus.
+        return []
+
+    def _derive_referent_window_from_history(
+        self,
+        *,
+        conversation_history: list[dict[str, Any]],
+        asks: list[str],
+    ) -> list[str]:
+        return []
+
+    @staticmethod
+    def _derive_required_evidence_mode(response_requirement: ResponseRequirement) -> str:
+        for value in (
+            getattr(response_requirement, "profile_evidence_mode", ""),
+            getattr(response_requirement, "company_evidence_mode", ""),
+        ):
+            normalized = LiveBrainService._normalize_text(value).lower()
+            if normalized and normalized != "none":
+                return normalized
+        return "support_if_relevant"
+
+    @staticmethod
+    def _derive_disallowed_evidence_modes(
+        *,
+        response_requirement: ResponseRequirement,
+        candidate_context_policy: str,
+        company_context_policy: str,
+    ) -> list[str]:
+        disallowed: list[str] = []
+        if candidate_context_policy == "avoid" or str(response_requirement.profile_evidence_mode or "").strip().lower() == "none":
+            disallowed.append("profile_evidence")
+        if company_context_policy == "avoid" or str(response_requirement.company_evidence_mode or "").strip().lower() == "none":
+            disallowed.append("company_pitch")
+        if str(response_requirement.prior_context_mode or "").strip().lower() == "none":
+            disallowed.append("prior_context")
+        return disallowed
+
+    def _build_question_scope(
+        self,
+        *,
+        literal_question: str,
+        resolved_question: str,
+        asks: list[str],
+        referent_window: list[str],
+        ask_intents: list[AskIntent],
+        response_requirement: ResponseRequirement,
+        answer_contract: str,
+        candidate_context_policy: str,
+        company_context_policy: str,
+        confidence: float,
+        scope_source: str,
+    ) -> QuestionScope:
+        primary_intent = next(
+            (
+                self._normalize_text(intent.ask_intent)
+                for intent in list(ask_intents or [])
+                if self._normalize_text(intent.ask_intent)
+            ),
+            "",
+        )
+        question_kind = (
+            primary_intent
+            or self._normalize_text(getattr(response_requirement, "answer_mode", ""))
+            or ("follow_up_clarification" if referent_window else "general")
+        )
+        return QuestionScope(
+            question_text=self._normalize_text(literal_question or resolved_question),
+            resolved_question=self._normalize_text(resolved_question or literal_question),
+            referent_window=self._normalize_unique_strings(list(referent_window or []))[:4],
+            question_kind=question_kind or "general",
+            answer_contract=self._normalize_text(answer_contract or "general_direct") or "general_direct",
+            required_evidence_mode=self._derive_required_evidence_mode(response_requirement),
+            disallowed_evidence_modes=self._derive_disallowed_evidence_modes(
+                response_requirement=response_requirement,
+                candidate_context_policy=candidate_context_policy,
+                company_context_policy=company_context_policy,
+            ),
+            scope_confidence=max(0.0, min(float(confidence or 0.0), 1.0)),
+            scope_source=self._normalize_text(scope_source) or "safe_fallback",
+        )
 
     def _select_safe_resolved_question(
         self,
@@ -4688,6 +6114,14 @@ JSON schema:
             return False
         if immediate_prev in {"what", "how", "why", "when", "where", "who", "which"}:
             return False
+        if (
+            lead in {"do you", "does", "did", "are you", "is there", "can you", "could you", "would you", "should you", "will you", "have you", "has"}
+            and prefix_tokens[0] in {"what", "which", "how", "who", "where", "when", "why"}
+            and len(prefix_tokens) <= 4
+            and not prefix.rstrip().endswith(("?", ".", "!"))
+            and immediate_prev not in _QUESTION_SPLIT_CONNECTORS
+        ):
+            return False
 
         request_prefix = any(
             prefix.strip().startswith(existing)
@@ -4745,6 +6179,8 @@ JSON schema:
             return False
         if not self._looks_like_question_clause(current_normalized):
             return False
+        if self._looks_like_request_self_repair_continuation(current_normalized, next_normalized):
+            return True
         lowered_next = next_normalized.lower()
         current_tokens = re.findall(r"[a-z0-9']+", current_normalized.lower())
         if lowered_next.startswith(("or ", "and ")) and len(current_tokens) <= 10:
@@ -4786,10 +6222,28 @@ JSON schema:
         normalized_right = re.sub(r"[^\w\s']+", "", LiveBrainService._normalize_text(right).lower()).strip()
         if not normalized_left or not normalized_right:
             return False
-        return (
+        if (
             normalized_left == normalized_right
             or normalized_left in normalized_right
             or normalized_right in normalized_left
+        ):
+            return True
+        left_tokens = {
+            token
+            for token in re.findall(r"[a-z0-9']+", normalized_left)
+            if token not in _COVERAGE_STOPWORDS and len(token) > 2
+        }
+        right_tokens = {
+            token
+            for token in re.findall(r"[a-z0-9']+", normalized_right)
+            if token not in _COVERAGE_STOPWORDS and len(token) > 2
+        }
+        if not left_tokens or not right_tokens:
+            return False
+        overlap = left_tokens & right_tokens
+        return (
+            len(overlap) >= 4
+            and (len(overlap) / max(1, min(len(left_tokens), len(right_tokens)))) >= 0.65
         )
 
     @staticmethod
@@ -4799,7 +6253,7 @@ JSON schema:
         if not lowered or lowered.endswith("?"):
             return False
         tokens = re.findall(r"[a-z0-9']+", lowered)
-        if len(tokens) < 4 or tokens[0] not in {"who", "which", "that"}:
+        if len(tokens) < 3 or tokens[0] not in {"who", "which", "that"}:
             return False
         if any(lowered.startswith(prefix) for prefix in _REQUEST_INTENT_LEADS):
             return False
@@ -4846,20 +6300,28 @@ JSON schema:
         is_technical = any(term in seed for term in _TECHNICAL_SIGNAL_TERMS)
         is_strategic = any(term in seed for term in _STRATEGIC_SIGNAL_TERMS)
         requires_metrics = any(term in seed for term in _METRIC_SIGNAL_TERMS)
-        is_preference = any(term in seed for term in _PREFERENCE_SIGNAL_TERMS)
+        is_preference = self._looks_like_candidate_preference_request(
+            " ".join([resolved_question or "", *list(asks or []), *list(coverage_points or [])])
+        )
         asks_candidate_background = self._asks_need_candidate_background(asks=asks, resolved_question=resolved_question)
+        is_background_overview = (
+            self._looks_like_candidate_background_overview_request(resolved_question)
+            or any(self._looks_like_candidate_background_overview_request(ask) for ask in list(asks or []))
+        )
         is_multi_focus = len(list(asks or [])) > 1 or len(list(coverage_points or [])) > 1
         has_contextual_intro = (
             asks_candidate_background
             and bool(context_focus)
             and (
                 any(self._looks_like_intro_request(ask) for ask in list(asks or []))
+                or any(self._looks_like_candidate_background_overview_request(ask) for ask in list(asks or []))
                 or self._looks_like_intro_request(resolved_question)
+                or self._looks_like_candidate_background_overview_request(resolved_question)
             )
         )
 
         response_shape = "direct_short"
-        if has_contextual_intro:
+        if has_contextual_intro or is_background_overview:
             response_shape = "direct_structured"
         elif is_technical:
             response_shape = "technical_explainer"
@@ -4869,7 +6331,7 @@ JSON schema:
             response_shape = "direct_structured"
 
         evidence_depth = "light"
-        if has_contextual_intro:
+        if has_contextual_intro or is_background_overview:
             evidence_depth = "medium"
         elif is_technical:
             evidence_depth = "deep"
@@ -4888,12 +6350,14 @@ JSON schema:
             target_length = max(target_length, 210)
         elif normalized_style_hint in {"professional", "executive"}:
             target_length = max(target_length, 140 if response_shape == "direct_short" else 170)
-        if has_contextual_intro:
+        if has_contextual_intro or is_background_overview:
             target_length = max(target_length, 170)
 
         directness = "direct" if response_shape == "direct_short" else "balanced"
         question_type = "direct"
-        if has_contextual_intro and (is_technical or is_strategic):
+        if is_background_overview and not is_technical and not is_strategic:
+            question_type = "behavioral"
+        elif has_contextual_intro and (is_technical or is_strategic):
             question_type = "mixed"
         elif is_technical and is_strategic:
             question_type = "mixed"
@@ -5005,22 +6469,7 @@ JSON schema:
                 "leadership",
             )
         )
-        has_culture = answer_contract == "preferences_and_anti_patterns" or any(
-            phrase in seed
-            for phrase in (
-                "company",
-                "culture",
-                "what matters",
-                "what's important",
-                "important for you",
-                "don't like",
-                "do not like",
-                "absolutely like",
-                "absolutely don't like",
-                "looking for",
-                "what are you looking for",
-            )
-        )
+        has_culture = answer_contract == "preferences_and_anti_patterns" or self._looks_like_candidate_preference_request(seed)
         has_technical = question_type == "technical" or answer_contract == "architecture_walkthrough"
 
         if has_culture:
@@ -5096,11 +6545,11 @@ JSON schema:
                     purpose="profile_core",
                     ask_refs=normalized_asks[:1],
                     required_elements=[
-                        "strongest matching proof from the profile",
-                        "why that proof maps to the interviewer problem",
+                        "one concrete profile anchor",
+                        "why that anchor is the most relevant part of the background here",
                         "current role only as orientation",
                     ],
-                    preferred_evidence_types=["build_evidence", "leadership_evidence", "technical_alignment_evidence", "role_evidence"],
+                    preferred_evidence_types=["role_evidence", "technical_alignment_evidence", "operating_style_evidence", "build_evidence"],
                     avoid_topics=["generic_company_pitch", "unsupported_metrics"],
                     target_sentence_count=2,
                 ),
@@ -5109,12 +6558,12 @@ JSON schema:
                     ask_refs=normalized_asks[:1],
                     required_elements=self._normalize_unique_strings(
                         [
-                            "leadership scope",
-                            "how that scope lets the candidate set direction and guide the teams building it",
+                            "relevant operating or leadership scope",
+                            "why that scope is the part of the background that matters here",
                             *list(alignment_brief or []),
                         ]
                     )[:3],
-                    preferred_evidence_types=["leadership_evidence", "technical_alignment_evidence", "build_evidence"],
+                    preferred_evidence_types=["operating_style_evidence", "technical_alignment_evidence", "client_posture_evidence", "leadership_evidence"],
                     avoid_topics=["strong_fit_claim_without_fit_ask"],
                     target_sentence_count=1,
                 ),
@@ -5126,7 +6575,7 @@ JSON schema:
                     purpose="preferences_company_culture_team",
                     ask_refs=normalized_asks[:2],
                     required_elements=["company preferences", "culture preferences", "team preferences"],
-                    preferred_evidence_types=["culture_alignment_evidence"],
+                    preferred_evidence_types=["company_snippets", "culture_alignment_evidence"],
                     avoid_topics=["career_biography", "unsupported_metrics"],
                     target_sentence_count=2,
                 ),
@@ -5182,6 +6631,28 @@ JSON schema:
                         preferred_evidence_types=["team_scope_evidence", "leadership_evidence"],
                         avoid_topics=["generic_profile_summary"],
                         target_sentence_count=1,
+                    )
+                )
+            elif self._looks_like_role_scope_clarification_request(ask):
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="role_scope_clarification",
+                        ask_refs=[ask],
+                        required_elements=["correct the characterization directly", "clarify the real mix of leadership and execution", "anchor the clarification in current scope"],
+                        preferred_evidence_types=["role_evidence", "operating_style_evidence", "leadership_evidence", "client_posture_evidence"],
+                        avoid_topics=["generic_profile_summary"],
+                        target_sentence_count=2,
+                    )
+                )
+            elif self._looks_like_solution_accelerators_request(ask):
+                blueprint.append(
+                    self._make_blueprint_segment(
+                        purpose="solution_accelerators",
+                        ask_refs=[ask],
+                        required_elements=["name the accelerator or framework directly", "explain how it operates in practice", "make the human or governance checkpoints explicit when relevant"],
+                        preferred_evidence_types=["build_evidence", "operating_style_evidence", "technical_alignment_evidence"],
+                        avoid_topics=["generic_profile_summary"],
+                        target_sentence_count=2,
                     )
                 )
             elif any(term in ask_lower for term in ("how big were the teams", "team management", "teams you've managed", "team experience")):
@@ -5244,11 +6715,79 @@ JSON schema:
         return LiveBrainService._normalize_text(merged)
 
     @staticmethod
+    def _prefix_is_noise_only(prefix_text: str) -> bool:
+        normalized = LiveBrainService._normalize_text(prefix_text).strip(" ,.;:-").lower()
+        if not normalized:
+            return False
+        tokens = re.findall(r"[a-z0-9']+", normalized)
+        if not tokens or len(tokens) > 4:
+            return False
+        return all(token in _QUESTION_SPLIT_CONNECTORS for token in tokens)
+
+    @staticmethod
+    def _looks_like_candidate_clarification_prompt(text: str) -> bool:
+        normalized = LiveBrainService._normalize_text(text)
+        if not normalized:
+            return False
+        lowered = normalized.lower().strip(" ,")
+        if re.match(r"^(?:so\s+)?i(?:\s+i)?\s+imagine\b", lowered):
+            return True
+        for lead in _CLARIFICATION_PROMPT_LEADS:
+            if lowered.startswith(lead):
+                return True
+        return False
+
+    @staticmethod
+    def _strip_leading_discourse_prefix(text: str) -> str:
+        normalized = LiveBrainService._normalize_text(text)
+        if not normalized:
+            return ""
+        connector_pattern = "|".join(
+            re.escape(item)
+            for item in sorted(_QUESTION_SPLIT_CONNECTORS, key=len, reverse=True)
+        )
+        stripped = re.sub(
+            rf"^(?:(?:{connector_pattern})[\s,.;:-]+)+",
+            "",
+            normalized,
+            flags=re.IGNORECASE,
+        ).lstrip(" ,.;:-")
+        return stripped or normalized
+
+    def _looks_like_request_self_repair_continuation(self, current: str, nxt: str) -> bool:
+        current_normalized = self._normalize_text(current).lower()
+        next_normalized = self._normalize_text(nxt).lower()
+        if not current_normalized or not next_normalized:
+            return False
+        if not (
+            self._looks_like_intro_request(current_normalized)
+            or current_normalized.startswith("tell me a little")
+            or current_normalized.startswith("tell me a bit")
+        ):
+            return False
+        return (
+            next_normalized.startswith(("me ", "a little ", "little ", "bit ", "more "))
+            or " more about " in f" {next_normalized} "
+            or next_normalized.endswith("more about")
+        )
+
+    @staticmethod
     def _trim_to_question_lead(text: str) -> str:
         normalized = LiveBrainService._normalize_text(text)
         lowered = normalized.lower()
+        if LiveBrainService._looks_like_candidate_clarification_prompt(normalized):
+            return normalized
         if any(lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS):
             return normalized
+        stripped_discourse = LiveBrainService._strip_leading_discourse_prefix(normalized)
+        stripped_lowered = stripped_discourse.lower()
+        if stripped_discourse != normalized and (
+            any(stripped_lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS)
+            or LiveBrainService._looks_like_intro_request(stripped_discourse)
+            or LiveBrainService._looks_like_candidate_clarification_prompt(stripped_discourse)
+            or LiveBrainService._has_interrogative_structure(stripped_discourse)
+        ):
+            return stripped_discourse
 
         best_pos: Optional[int] = None
         for prefix in _ALL_QUESTION_LIKE_LEADS:
@@ -5262,16 +6801,30 @@ JSON schema:
             return normalized
 
         prefix_text = lowered[:best_pos]
+        candidate = normalized[best_pos:].strip(" ,")
+        if not candidate:
+            return normalized
         if any(prefix_text.strip().startswith(prefix_start) for prefix_start in _REQUEST_INTENT_LEADS):
             return normalized
         noisy_prefix = (
             any(phrase in prefix_text for phrase in _PREAMBLE_PHRASES)
             or any(prefix_text.strip().startswith(start.strip()) for start in _FILLER_STARTS)
             or "," in prefix_text
+            or LiveBrainService._prefix_is_noise_only(prefix_text)
         )
         if not noisy_prefix:
             return normalized
-        return normalized[best_pos:].strip(" ,")
+        if LiveBrainService._looks_like_relative_clause_fragment(candidate):
+            return normalized
+        candidate_lowered = candidate.lower()
+        if not (
+            any(candidate_lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS)
+            or LiveBrainService._looks_like_intro_request(candidate)
+            or LiveBrainService._looks_like_candidate_clarification_prompt(candidate)
+            or LiveBrainService._has_interrogative_structure(candidate)
+        ):
+            return normalized
+        return candidate
 
     @staticmethod
     def _has_open_tail(text: str) -> bool:
@@ -5282,24 +6835,55 @@ JSON schema:
 
     @staticmethod
     def _looks_like_question_clause(text: str) -> bool:
-        lowered = " ".join(str(text or "").lower().split())
-        return any(
-            lowered.startswith(prefix) or f" {prefix}" in lowered
-            for prefix in _ALL_QUESTION_LIKE_LEADS
-        )
+        normalized = LiveBrainService._normalize_text(text)
+        if not normalized:
+            return False
+        trimmed = LiveBrainService._trim_to_question_lead(normalized)
+        lowered = trimmed.lower()
+        if LiveBrainService._looks_like_relative_clause_fragment(trimmed):
+            return False
+        if LiveBrainService._looks_like_candidate_clarification_prompt(trimmed):
+            return True
+        if any(lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS):
+            return True
+        return trimmed.endswith("?") and LiveBrainService._has_interrogative_structure(trimmed)
 
     @staticmethod
     def _question_clause_score(text: str) -> float:
-        lowered = " ".join(str(text or "").lower().split())
+        normalized = LiveBrainService._normalize_text(text)
+        lowered = normalized.lower()
         score = 0.0
         starts_with_request_intent = any(lowered.startswith(prefix) for prefix in _REQUEST_INTENT_LEADS)
-        if any(lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS):
+        is_clarification_prompt = LiveBrainService._looks_like_candidate_clarification_prompt(normalized)
+        tokens = re.findall(r"[a-z0-9']+", lowered)
+        first_token = tokens[0] if tokens else ""
+        auxiliary_open = first_token in {
+            "is",
+            "are",
+            "am",
+            "was",
+            "were",
+            "do",
+            "does",
+            "did",
+            "have",
+            "has",
+            "had",
+            "can",
+            "could",
+            "would",
+            "should",
+            "will",
+        }
+        if is_clarification_prompt:
             score += 2.0
-        elif any(f" {prefix}" in lowered for prefix in _ALL_QUESTION_LIKE_LEADS):
-            score += 1.0
+        elif any(lowered.startswith(prefix) for prefix in _ALL_QUESTION_LIKE_LEADS):
+            score += 2.0
+        elif auxiliary_open and normalized.endswith("?") and LiveBrainService._has_interrogative_structure(normalized):
+            score += 1.5
         if "?" in lowered:
             score += 1.0
-        if any(lowered.startswith(prefix) for prefix in _FILLER_STARTS) and not starts_with_request_intent:
+        if any(lowered.startswith(prefix) for prefix in _FILLER_STARTS) and not starts_with_request_intent and not is_clarification_prompt:
             score -= 1.25
         if any(phrase in lowered for phrase in _PREAMBLE_PHRASES):
             score -= 1.0
@@ -5316,6 +6900,15 @@ JSON schema:
         normalized = " ".join(str(text or "").split()).strip()
         if not normalized:
             return False
+        trimmed = LiveBrainService._trim_to_question_lead(normalized)
+        if LiveBrainService._looks_like_candidate_clarification_prompt(trimmed):
+            tokens = re.findall(r"[a-z0-9']+", trimmed.lower())
+            if LiveBrainService._last_token_is_dangling(tokens):
+                return False
+            return True
+        if LiveBrainService._looks_like_relative_clause_fragment(trimmed):
+            return False
+        normalized = trimmed
         if normalized.endswith("?"):
             return LiveBrainService._has_interrogative_structure(normalized)
         if (
@@ -5351,6 +6944,22 @@ JSON schema:
         normalized_asks = [self._normalize_text(ask) for ask in list(asks or []) if self._normalize_text(ask)]
         if len(normalized_asks) <= 1:
             return normalized_asks
+        deduped: list[str] = []
+        for ask in normalized_asks:
+            replacement_index: Optional[int] = None
+            for index, existing in enumerate(deduped):
+                if self._asks_semantically_overlap(ask, existing):
+                    replacement_index = index
+                    break
+            if replacement_index is None:
+                deduped.append(ask)
+                continue
+            current = deduped[replacement_index]
+            current_score = self._question_clause_score(current)
+            next_score = self._question_clause_score(ask)
+            if next_score > current_score or (next_score == current_score and len(ask) > len(current)):
+                deduped[replacement_index] = ask
+        normalized_asks = deduped or normalized_asks
         last_index = len(normalized_asks) - 1
         specific = [
             ask
@@ -5363,7 +6972,11 @@ JSON schema:
     def _asks_need_candidate_background(*, asks: list[str], resolved_question: str) -> bool:
         if LiveBrainService._looks_like_intro_request(resolved_question):
             return True
+        if LiveBrainService._looks_like_candidate_background_overview_request(resolved_question):
+            return True
         if any(LiveBrainService._looks_like_intro_request(ask) for ask in list(asks or [])):
+            return True
+        if any(LiveBrainService._looks_like_candidate_background_overview_request(ask) for ask in list(asks or [])):
             return True
         seed = " ".join([resolved_question or "", *list(asks or [])]).lower()
         return any(
@@ -5393,10 +7006,55 @@ JSON schema:
         )
 
     @staticmethod
+    def _looks_like_candidate_background_overview_request(text: str) -> bool:
+        lowered = " ".join(str(text or "").lower().split())
+        if not lowered:
+            return False
+        direct_patterns = (
+            "summarize your background",
+            "summarise your background",
+            "summarize your experience",
+            "summarise your experience",
+            "tell me about your background",
+            "tell us about your background",
+            "tell me about your experience",
+            "tell us about your experience",
+            "type of position you've had",
+            "type of positions you've had",
+            "type of role you've had",
+            "type of roles you've had",
+            "kind of position you've had",
+            "kind of positions you've had",
+            "kind of role you've had",
+            "kind of roles you've had",
+            "positions you've had",
+            "roles you've had",
+        )
+        if any(pattern in lowered for pattern in direct_patterns):
+            return True
+        if not any(trigger in lowered for trigger in ("position", "positions", "role", "roles", "background", "experience")):
+            return False
+        if (
+            "you've had" not in lowered
+            and "you have had" not in lowered
+            and "your background" not in lowered
+            and "your experience" not in lowered
+        ):
+            return False
+        return bool(
+            re.search(
+                r"\b(?:summarize|summarise|tell\s+(?:me|us)\s+about|walk\s+(?:me|us)\s+through)\b",
+                lowered,
+            )
+        )
+
+    @staticmethod
     def _has_interrogative_structure(text: str) -> bool:
         lowered = LiveBrainService._trim_to_question_lead(text).lower()
         if not lowered:
             return False
+        if LiveBrainService._looks_like_candidate_clarification_prompt(lowered):
+            return True
         direct_prefixes = (
             "tell us",
             "tell me",
@@ -5464,7 +7122,9 @@ JSON schema:
             if lowered.endswith("?"):
                 return True
             return False
-        return True
+        if first in auxiliaries:
+            return second in pronouns or second in {"that", "this", "it", "there"} or lowered.endswith("?")
+        return False
 
     @staticmethod
     def _build_resolved_question(asks: list[str]) -> str:
@@ -5559,6 +7219,18 @@ JSON schema:
             flags=re.IGNORECASE,
         )
         normalized = re.sub(
+            r"^tell me (?:a )?little(?: bit)?\s+me\s+(?:a\s+)?little\s+bit\s+more\s+about\s+",
+            "Tell me a little bit more about ",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+        normalized = re.sub(
+            r"^tell me (?:a )?bit\s+me\s+(?:a\s+)?bit\s+more\s+about\s+",
+            "Tell me a bit more about ",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+        normalized = re.sub(
             r"\bhow big were the team\b(?:\s+big were the teams\b)?",
             "How big were the teams",
             normalized,
@@ -5579,6 +7251,12 @@ JSON schema:
         normalized = re.sub(
             r"^what roles they have\b",
             "What roles did they have",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+        normalized = re.sub(
+            r"^(what|how|why|when|where|who|which)(?:\s+\1\b)+",
+            r"\1",
             normalized,
             flags=re.IGNORECASE,
         )
@@ -5608,13 +7286,27 @@ JSON schema:
                 or LiveBrainService._is_complete_question_clause(candidate)
             ):
                 return candidate
+        stripped_relative_tail = re.sub(
+            r"[\s,;:-]+\b(?:that|which|who)\s+(?:you|it|they|this|that)\b[\s,;:-]*$",
+            "",
+            candidate,
+            flags=re.IGNORECASE,
+        ).strip(" ,;:-")
+        if stripped_relative_tail and stripped_relative_tail != candidate:
+            if (
+                LiveBrainService._looks_like_intro_request(stripped_relative_tail)
+                or LiveBrainService._is_complete_question_clause(stripped_relative_tail)
+            ):
+                return stripped_relative_tail
         return normalized
 
     def _derive_question_type(self, *, ordered_asks: list[str], resolved_question: str) -> str:
         seed = " ".join([resolved_question or "", *list(ordered_asks or [])]).lower()
         has_technical = any(term in seed for term in _TECHNICAL_SIGNAL_TERMS)
         has_business = any(term in seed for term in _STRATEGIC_SIGNAL_TERMS)
-        has_behavioral = any(term in seed for term in _PREFERENCE_SIGNAL_TERMS) or "experience" in seed
+        has_behavioral = self._looks_like_candidate_preference_request(
+            " ".join([resolved_question or "", *list(ordered_asks or [])])
+        ) or "experience" in seed
         kinds = sum(bool(flag) for flag in (has_technical, has_business, has_behavioral))
         if kinds > 1:
             return "mixed"
@@ -5635,13 +7327,16 @@ JSON schema:
         coverage_points: list[str],
     ) -> str:
         seed = " ".join([*list(asks or []), *list(coverage_points or [])]).lower()
+        asks_preference = self._looks_like_candidate_preference_request(
+            " ".join([*list(asks or []), *list(coverage_points or [])])
+        )
         if question_type == "technical":
             return "architecture_walkthrough" if any(term in seed for term in ("architecture", "design", "system", "platform")) else "direct_explanation"
         if question_type in {"business", "behavioral"} and any(token in seed for token in ("outcome", "outcomes", "results", "impact", "experience", "led", "built")):
             return "business_with_outcomes"
         if any(self._looks_like_intro_request(ask) for ask in asks[1:]):
             return "follow_up_focused"
-        if any(term in seed for term in ("looking for", "important to you", "important for you", "what matters", "avoid", "don't like", "do not like", "absolutely like")):
+        if asks_preference:
             return "preferences_and_anti_patterns"
         if len(list(asks or [])) > 1 or len(list(coverage_points or [])) > 1:
             return "direct_multi_part"
@@ -5718,6 +7413,10 @@ JSON schema:
                     "Do not answer a self-answered meta prompt or an incomplete tail."
                 )
             return self._normalize_text(resolved_question)
+        if literal.lower().startswith("answer these interviewer asks in order:"):
+            numbered_match = re.search(r"1\.\s*(.+?)(?:\s+2\.|\Z)", literal, flags=re.IGNORECASE)
+            if numbered_match:
+                literal = self._normalize_text(numbered_match.group(1))
 
         raw_focus_items = self._normalize_unique_strings(
             [
@@ -5747,7 +7446,25 @@ JSON schema:
         ]
         answer_mode = self._normalize_text(response_requirement.answer_mode).lower()
         focus_text = self._join_natural_phrases(compact_focus[:3])
-        must_cover_text = self._join_natural_phrases(must_cover[:3])
+        surfaced_must_cover = [
+            item
+            for item in must_cover[:3]
+            if self._normalize_text(item).lower()
+            not in {
+                "direct answer",
+                "role and scope",
+                "what was done or led",
+                "outcome or business impact",
+                "main solution areas",
+                "what those solutions solve",
+                "resolved referent from the immediately preceding interviewer context",
+                "direct answer to the resolved ask",
+                "prioritization criteria",
+                "ordering logic or trade-offs",
+                "practical outcome or operational implication",
+            }
+        ]
+        must_cover_text = self._join_natural_phrases(surfaced_must_cover)
         response_order = [
             self._normalize_text(item)
             for item in list(response_requirement.response_order or [])
@@ -5787,24 +7504,28 @@ JSON schema:
                     if self._normalize_text(item)
                 ]
             ) or focus_text
-            sentence = "Introduce yourself professionally in a way that maps your background to the interviewer problem"
+            sentence = "Introduce yourself professionally using the part of your background that is most relevant to the interviewer problem"
             if profile_focus:
                 sentence += f", especially around {profile_focus}"
             if response_requirement.prior_context_mode != "none" and focus_text:
                 sentence += ". Use the prior interviewer context only to clarify the decision scope behind the introduction"
-            sentence += ". Keep it as a profile answer, not a generic biography"
+            sentence += ". Keep it as an introduction, not a generic biography or a solution pitch"
             return sentence.rstrip(".") + "."
+        if response_requirement.prior_context_mode == "disambiguate" and context_focus:
+            return literal
         if focuses_on_build_from_zero and any("object built" in item.lower() for item in must_cover_items):
             lead_phrase = (
                 "with clearly separated build-from-zero examples"
                 if requests_multiple_examples
                 else "by making the build-from-zero example"
             )
-            sentence = f"Answer the build-from-zero ask {lead_phrase} explicit."
+            sentence = f"Answer the build-from-zero ask {lead_phrase}."
             sentence += " Make the object built, stage, ownership, and outcome explicit"
             if any("team scale and composition" in item.lower() for item in list(response_requirement.must_cover or [])):
                 sentence += ". Then cover team scale and roles explicitly"
             return sentence.rstrip(".") + "."
+        if answer_mode == "structured_direct":
+            return literal
         if answer_mode == "technical_walkthrough":
             return (
                 f"Answer by focusing on {focus_text}, and make the key decisions, trade-offs, and practical outcomes explicit."
@@ -5817,11 +7538,10 @@ JSON schema:
                 sentence += f", while making clear your {must_cover_text}"
             return sentence.rstrip(".") + "."
         if answer_mode == "preferences":
-            sentence = f"Answer by focusing on the preference areas most relevant to {focus_text}"
-            if must_cover_text:
-                sentence += f", and make clear your {must_cover_text}"
-            sentence += ". Keep the answer on stated preferences and boundaries rather than background recap"
-            return sentence.rstrip(".") + "."
+            return self._build_preference_contextualized_question(
+                response_requirement=response_requirement,
+                fallback_focus_text=focus_text,
+            )
         sentence = f"Answer by focusing on {focus_text}"
         if must_cover_text:
             sentence += f", while making clear your {must_cover_text}"
@@ -6197,24 +7917,36 @@ JSON schema:
         runtime_model = str(runtime_llm.get("model") or "").strip()
 
         if alias == "fast":
-            if runtime_enabled and runtime_provider == "anthropic" and runtime_api_key:
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+            )
+            openai_key = os.getenv("OPENAI_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
+            )
+            if anthropic_key:
                 adapter = AnthropicLLMAdapter(model="claude-haiku-4-5-20251001")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = anthropic_key
                 return adapter
-            if runtime_enabled and runtime_provider == "openai" and runtime_api_key:
+            if openai_key:
                 adapter = OpenAILLMAdapter(model="gpt-4o-mini")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = openai_key
                 return adapter
             if runtime_enabled and runtime_provider == "ollama":
                 return OllamaLLMAdapter(model="llama3.2:1b", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
         else:
-            if runtime_enabled and runtime_provider == "anthropic" and runtime_api_key:
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+            )
+            openai_key = os.getenv("OPENAI_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
+            )
+            if anthropic_key:
                 adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-5-20250929")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = anthropic_key
                 return adapter
-            if runtime_enabled and runtime_provider == "openai" and runtime_api_key:
+            if openai_key:
                 adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = openai_key
                 return adapter
             if runtime_enabled and runtime_provider == "ollama":
                 return OllamaLLMAdapter(model=runtime_model or "qwen3.5:latest", base_url=runtime_llm.get("base_url") or "http://localhost:11434")

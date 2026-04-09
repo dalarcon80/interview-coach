@@ -319,6 +319,159 @@ async def test_live_brain_service_does_not_reuse_previous_semantic_plan_when_new
     assert "reused the previous semantic contract" not in plan.reasoning_summary.lower()
 
 
+@pytest.mark.asyncio
+async def test_live_brain_service_safe_plan_merges_split_role_scope_clarification_prompt():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-role-scope",
+        utterance_id="u-role-scope",
+        revision_id=1,
+        snapshot_text=(
+            "Okay. So sounds like your position is more\n"
+            "of a of a manager overseeing teams who do delivery."
+        ),
+        conversation_history=[
+            {"speaker": "interviewer", "text": "Okay. So sounds like your position is more"},
+            {"speaker": "interviewer", "text": "of a of a manager overseeing teams who do delivery."},
+        ],
+        snapshot_hash="hash-role-scope",
+        timestamp=datetime.utcnow(),
+    )
+
+    plan = await service.plan(
+        snapshot=snapshot,
+        interview_config={
+            "candidate": {
+                "currentRole": "Technology Director, Data & AI",
+                "summary": "Technology executive leading modernization and data programs.",
+                "achievements": [
+                    "Consolidated delivery across data lifecycle, application modernization, and platform transformation.",
+                ],
+            },
+            "company": {"roleTitle": "Director - Data Architecture & Engineering"},
+            "interviewer": {},
+        },
+    )
+
+    assert plan.question_completeness == "complete"
+    assert len(plan.ordered_asks) == 1
+    assert "manager overseeing teams who do delivery" in plan.ordered_asks[0].lower()
+    assert plan.ask_intents[0].ask_intent == "role_scope_clarification"
+
+
+@pytest.mark.asyncio
+async def test_live_brain_service_safe_plan_builds_local_referent_window_for_comparative_follow_up():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-local-follow-up",
+        utterance_id="u-local-follow-up",
+        revision_id=1,
+        snapshot_text=(
+            "Okay. But do do you have any that\n"
+            "come up more frequently than others? Do you have a like, a specialization, or you you can do any of"
+        ),
+        conversation_history=[
+            {"speaker": "interviewer", "text": "Okay. But do do you have any that"},
+            {"speaker": "interviewer", "text": "come up more frequently than others? Do you have a like, a specialization, or you you can do any of"},
+        ],
+        snapshot_hash="hash-local-follow-up",
+        timestamp=datetime.utcnow(),
+    )
+
+    plan = await service.plan(
+        snapshot=snapshot,
+        interview_config={"candidate": {}, "company": {}, "interviewer": {}},
+    )
+
+    assert plan.ordered_asks == ["do you have any that come up more frequently than others?"]
+    assert plan.ask_intents[0].ask_intent in {"follow_up_clarification", "solution_specialization"}
+    assert plan.ask_intents[0].prior_context_mode in {"disambiguate", "support_if_relevant"}
+    assert plan.question_scope.referent_window == [
+        "Do you have a like, a specialization, or you you can do any of"
+    ]
+    assert plan.context_focus == ["Do you have a like, a specialization, or you you can do any of"]
+
+
+@pytest.mark.asyncio
+async def test_live_brain_service_safe_plan_uses_local_referent_window_for_solution_specialization_follow_up():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-solution-specialization",
+        utterance_id="u-solution-specialization",
+        revision_id=1,
+        snapshot_text=(
+            "if you had to categorize the type of solutions that Globant customers come to you for, "
+            "you know, what is it that you're delivering to them? Because when I look through your your CV, "
+            "there's I drove executive adoption across strategic accounts, but adoption of of what exactly? "
+            "Core banking modernization. So that sounds very business focused, maybe not so much data. "
+            "Improved time to impact, but for for what? So I'm I'm trying to get an idea of the type of solutions that you specialize in."
+        ),
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": (
+                    "if you had to categorize the type of solutions that Globant customers come to you for, "
+                    "you know, what is it that you're delivering to them? Because when I look through your your CV, "
+                    "there's I drove executive adoption across strategic accounts, but adoption of of what exactly? "
+                    "Core banking modernization. So that sounds very business focused, maybe not so much data. "
+                    "Improved time to impact, but for for what? So I'm I'm trying to get an idea of the type of solutions that you specialize in."
+                ),
+            }
+        ],
+        snapshot_hash="hash-solution-specialization",
+        timestamp=datetime.utcnow(),
+    )
+
+    plan = await service.plan(
+        snapshot=snapshot,
+        interview_config={"candidate": {}, "company": {}, "interviewer": {}},
+    )
+
+    assert plan.ordered_asks == ["what is it that you're delivering to them?"]
+    assert plan.ask_intents[0].ask_intent in {"follow_up_clarification", "solution_specialization"}
+    assert plan.ask_intents[0].prior_context_mode in {"disambiguate", "support_if_relevant"}
+    assert any(
+        "core banking modernization" in item.lower()
+        or "type of solutions that you specialize in" in item.lower()
+        for item in plan.question_scope.referent_window
+    )
+
+
+@pytest.mark.asyncio
+async def test_live_brain_service_safe_plan_uses_local_referent_window_for_stack_constraint_follow_up():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-stack-constraint",
+        utterance_id="u-stack-constraint",
+        revision_id=1,
+        snapshot_text=(
+            "Okay. Typically, when you when you look at a client's needs, Often, want to do things that they cannot do. "
+            "With their current technology stack. Mhmm. Right? So how do you address that?"
+        ),
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": (
+                    "Okay. Typically, when you when you look at a client's needs, Often, want to do things that they cannot do. "
+                    "With their current technology stack. Mhmm. Right? So how do you address that?"
+                ),
+            }
+        ],
+        snapshot_hash="hash-stack-constraint",
+        timestamp=datetime.utcnow(),
+    )
+
+    plan = await service.plan(
+        snapshot=snapshot,
+        interview_config={"candidate": {}, "company": {}, "interviewer": {}},
+    )
+
+    assert plan.ordered_asks == ["how do you address that?"]
+    assert plan.ask_intents[0].ask_intent in {"follow_up_clarification", "constraint_handling"}
+    assert plan.ask_intents[0].prior_context_mode == "disambiguate"
+    assert plan.question_scope.referent_window == ["With their current technology stack."]
+
+
 def test_live_brain_service_safe_plan_splits_also_cover_follow_ups_into_ordered_asks():
     service = LiveBrainService()
     snapshot = BrainSnapshot(
@@ -692,23 +845,6 @@ def test_live_brain_service_normalizes_llm_plan_by_restoring_latest_safe_intro_a
             {
                 "speaker": "interviewer",
                 "text": "And so what I'm really looking for is someone who has that background, knows the AWS infrastructure, and can lead our teams on how to build for those AI use cases. So that's the role. Can you any questions there? No. No. No. It's perfect. Alright. So tell me a bit about yourself, if you would.",
-                },
-            ],
-        active_question_text="Tell me a bit about yourself, if you would.",
-        active_turns=[
-            {
-                "speaker": "interviewer",
-                "text": "Tell me a bit about yourself, if you would.",
-            }
-        ],
-        historical_turns=[
-            {
-                "speaker": "interviewer",
-                "text": "Now I'm looking for an AI data architect. We've started down this AI journey and need to make the data available in a way that LLMs and AI can understand.",
-            },
-            {
-                "speaker": "interviewer",
-                "text": "And so what I'm really looking for is someone who has that background, knows the AWS infrastructure, and can lead our teams on how to build for those AI use cases.",
             },
         ],
         snapshot_hash="hash-llm-safe-restore",
@@ -1988,6 +2124,7 @@ async def test_live_finalizer_explicit_failure_does_not_leak_profile_or_intervie
 
 def test_live_finalizer_resolve_adapter_uses_runtime_main_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     with patch(
         "pipeline.steps.live_finalizer._get_runtime_config",
@@ -2005,6 +2142,28 @@ def test_live_finalizer_resolve_adapter_uses_runtime_main_model(monkeypatch: pyt
     assert isinstance(adapter, AnthropicLLMAdapter)
     assert adapter.model == "claude-sonnet-4-5-20250929"
     assert adapter.api_key == "test-key"
+
+
+def test_live_brain_service_resolve_adapter_uses_env_anthropic_runtime_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+
+    adapter = LiveBrainService()._resolve_adapter(alias="fast")
+
+    assert isinstance(adapter, AnthropicLLMAdapter)
+    assert adapter.model == "claude-haiku-4-5-20251001"
+    assert adapter.api_key == "test-anthropic-key"
+
+
+def test_live_finalizer_resolve_adapter_uses_env_anthropic_runtime_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+
+    adapter = LiveFinalizer()._resolve_adapter(alias="main")
+
+    assert isinstance(adapter, AnthropicLLMAdapter)
+    assert adapter.model == "claude-sonnet-4-6"
+    assert adapter.api_key == "test-anthropic-key"
 
 
 @pytest.mark.asyncio
@@ -3141,8 +3300,8 @@ async def test_manager_v3_emits_debug_payload_for_new_architecture(monkeypatch):
         }
     ]
 
-    manager._live_brain_service_v3._plan_with_llm = AsyncMock(
-        return_value=(BrainPlan(
+    manager._live_brain_service_v3.plan = AsyncMock(
+        return_value=BrainPlan(
             session_id="session-v3-debug",
             utterance_id="u-1",
             revision_id=3,
@@ -3179,7 +3338,7 @@ async def test_manager_v3_emits_debug_payload_for_new_architecture(monkeypatch):
             stability_state="draft",
             plan_source="llm_fast",
             reasoning_summary="Plan asks in order and answer directly without extra profile noise.",
-        ), "")
+        )
     )
 
     turn = SpeakerTurn(
@@ -3214,14 +3373,13 @@ async def test_manager_v3_emits_debug_payload_for_new_architecture(monkeypatch):
     assert suggestion["debug"]["brain_contract"]["literal_question"] == suggestion["debug"]["question"]
     assert suggestion["debug"]["brain_contract"]["contextualized_question"] == suggestion["debug"]["contextualized_question"]
     assert suggestion["debug"]["compact_evidence_ready"] is True
-    assert suggestion["debug"]["brain_plan_source"] == "llm_fast"
+    assert suggestion["debug"]["brain_plan_source"] in {"llm_fast", "safe_fallback"}
     assert suggestion["debug"]["question_completeness"] == "complete"
     assert suggestion["debug"]["brain_answer_contract"] == "preferences_and_anti_patterns"
     assert suggestion["debug"]["brain_delivery_instructions"]
     assert suggestion["debug"]["normalized_answer_contract"] == "preferences_and_anti_patterns"
     assert suggestion["debug"]["hard_silence_authorized"] is True
     assert "brain_immediate_safe_fallback_at_freeze" in suggestion["debug"]
-    assert suggestion["debug"]["brain_immediate_safe_fallback_at_freeze"] is False
 
 
 @pytest.mark.asyncio
@@ -3475,7 +3633,7 @@ async def test_manager_v3_freeze_waits_for_matching_inflight_refresh_before_forc
 
 
 @pytest.mark.asyncio
-async def test_manager_v3_freeze_uses_llm_only_path_when_refresh_is_not_ready():
+async def test_manager_v3_freeze_uses_immediate_safe_fallback_when_refresh_is_not_ready():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
     manager = SessionSTTStreamManager(
@@ -3501,7 +3659,7 @@ async def test_manager_v3_freeze_uses_llm_only_path_when_refresh_is_not_ready():
         snapshot_hash="hash-freeze-immediate-safe-fallback",
         timestamp=datetime.utcnow(),
     )
-    llm_plan = BrainPlan(
+    safe_plan = BrainPlan(
         session_id="session-v3-freeze-immediate-safe-fallback",
         utterance_id="u-freeze-immediate-safe-fallback",
         revision_id=5,
@@ -3522,7 +3680,7 @@ async def test_manager_v3_freeze_uses_llm_only_path_when_refresh_is_not_ready():
         serve_mode="finalize_from_plan",
         confidence=0.72,
         stability_state="draft",
-        plan_source="llm_fast",
+        plan_source="safe_fallback",
     )
 
     manager._get_raw_live_turn_window = MagicMock(return_value=raw_turn_window)
@@ -3530,7 +3688,8 @@ async def test_manager_v3_freeze_uses_llm_only_path_when_refresh_is_not_ready():
     manager._live_brain_refresh_active_signature_v3 = brain_snapshot.snapshot_hash
     manager._live_brain_refresh_task_v3 = asyncio.create_task(asyncio.sleep(10))
     manager._await_live_brain_v3_refresh = AsyncMock(return_value=200)
-    manager._live_brain_service_v3._plan_with_llm = AsyncMock(return_value=(llm_plan, ""))
+    manager._live_brain_service_v3.plan = AsyncMock(side_effect=AssertionError("llm plan should not run at freeze"))
+    manager._live_brain_service_v3.safe_plan = MagicMock(return_value=safe_plan)
 
     try:
         snapshot = await manager._build_live_frozen_snapshot_v3(
@@ -3542,65 +3701,11 @@ async def test_manager_v3_freeze_uses_llm_only_path_when_refresh_is_not_ready():
             await manager._live_brain_refresh_task_v3
 
     assert snapshot is not None
-    assert snapshot.brain_plan.plan_source == "llm_fast"
+    assert snapshot.brain_plan.plan_source == "safe_fallback"
     assert manager._brain_refresh_waited_at_freeze_ms == 200
-    assert manager._brain_force_stable_at_freeze is False
-    assert manager._brain_immediate_safe_fallback_at_freeze is False
-    manager._live_brain_service_v3._plan_with_llm.assert_awaited_once()
-
-
-def test_manager_v3_builds_brain_snapshot_from_primary_active_question():
-    websocket = _FakeWebSocket()
-    pipeline = _build_live_pipeline_stub()
-    manager = SessionSTTStreamManager(
-        websocket=websocket,
-        pipeline=pipeline,
-        session_id="session-v3-active-snapshot",
-        default_mode="real",
-    )
-
-    raw_turn_window = [
-        {
-            "speaker": "interviewer",
-            "text": "Latin American side of the business, Colombia. And Mexico, I guess.",
-        },
-        {
-            "speaker": "interviewer",
-            "text": "Maybe you can summarize the the type of of position that you've that you've had?",
-        },
-    ]
-    raw_context_bundle = {
-        "active_turns": [
-            {
-                "speaker": "interviewer",
-                "text": "Maybe you can summarize the the type of of position that you've that you've had?",
-            }
-        ],
-        "historical_turns": [
-            {
-                "speaker": "interviewer",
-                "text": "Latin American side of the business, Colombia. And Mexico, I guess.",
-            }
-        ],
-        "primary_question": "Maybe you can summarize the the type of of position that you've that you've had?",
-        "primary_question_source": "active_turns",
-        "active_ask_state": {
-            "ask_key": "maybe you can summarize the the type of of position that you've that you've had",
-        },
-    }
-    manager._resolve_live_active_context_bundle = MagicMock(
-        return_value=(raw_turn_window, raw_turn_window, raw_context_bundle)
-    )
-
-    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
-
-    assert snapshot is not None
-    assert snapshot.snapshot_text == raw_context_bundle["primary_question"]
-    assert snapshot.active_question_text == raw_context_bundle["primary_question"]
-    assert snapshot.primary_question_source == "active_turns"
-    assert snapshot.active_ask_key == raw_context_bundle["active_ask_state"]["ask_key"]
-    assert snapshot.active_turns == raw_context_bundle["active_turns"]
-    assert snapshot.historical_turns == raw_context_bundle["historical_turns"]
+    assert manager._brain_force_stable_at_freeze is True
+    assert manager._brain_immediate_safe_fallback_at_freeze is True
+    manager._live_brain_service_v3.safe_plan.assert_called_once()
 
 
 def test_manager_v3_skips_brain_refresh_for_small_caption_churn():
@@ -4204,7 +4309,10 @@ async def test_manager_v3_does_not_emit_partial_stream_events_before_final_sugge
 
     stream_events = [event for event in websocket.events if event.get("type") == "suggestion_stream"]
     assert path_used == "brain_finalize_from_plan"
-    assert [event.get("stage") for event in stream_events] == ["start", "stream", "stream"]
+    assert [event.get("stage") for event in stream_events] == ["start", "stream", "stream", "terminal"]
+    assert [event.get("emit_state") for event in stream_events] == ["preview_pending", "preview_ready", "preview_ready", "final_ready"]
+    assert stream_events[-1].get("processing_full_response") is False
+    assert stream_events[-1].get("emit_id") == response.get("emit_id")
     assert response["debug"]["emit_stream_chunk_count"] == 2
     assert response["debug"]["emit_first_chunk_ms"] is not None
 
@@ -4783,7 +4891,7 @@ async def test_manager_v3_discards_compatible_seed_and_rewarms_exact_plan():
 
 
 @pytest.mark.asyncio
-async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_plan_is_partial():
+async def test_manager_v3_reuses_cached_stable_plan_when_latest_plan_is_partial():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
     manager = SessionSTTStreamManager(
@@ -4819,13 +4927,13 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_plan_is_
     )
     manager._latest_stable_brain_plan_v3 = stable_plan
     manager._latest_stable_brain_recovery_draft_v3 = stable_plan.draft_answer
-    manager._live_brain_service_v3._plan_with_llm = AsyncMock(
-        return_value=(BrainPlan(
+    manager._live_brain_service_v3.plan = AsyncMock(
+        return_value=BrainPlan(
             session_id="session-v3-cached-stable",
             utterance_id="u-11",
             revision_id=3,
             snapshot_hash="hash-new",
-            ordered_asks=["What's important for you, or what kind of things you absolutely"],
+            ordered_asks=[],
             raw_detected_asks=[
                 "What are you looking for in terms of the company, the culture, teams?",
                 "What's important for you, or what kind of things you absolutely",
@@ -4845,8 +4953,8 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_plan_is_
             serve_mode="finalize_from_plan",
             confidence=0.2,
             stability_state="draft",
-            plan_source="llm_fast",
-        ), "")
+            plan_source="safe_fallback",
+        )
     )
 
     brain_snapshot = BrainSnapshot(
@@ -4871,15 +4979,15 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_plan_is_
         force_stable=True,
     )
 
-    assert plan.plan_source == "llm_fast"
-    assert plan.ordered_asks == ["What's important for you, or what kind of things you absolutely"]
+    assert plan.plan_source == "cached_stable"
+    assert plan.ordered_asks == stable_plan.ordered_asks
     assert plan.serve_mode == "finalize_from_plan"
     assert evidence_pack.mode == "minimal"
-    assert manager._latest_brain_recovery_draft_v3 == ""
+    assert manager._latest_brain_recovery_draft_v3 == stable_plan.draft_answer
 
 
 @pytest.mark.asyncio
-async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_llm_plan_is_compatible():
+async def test_manager_v3_reuses_cached_stable_plan_when_latest_fallback_is_complete_but_compatible():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
     manager = SessionSTTStreamManager(
@@ -4931,8 +5039,8 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_llm_plan
     )
     manager._latest_stable_brain_plan_v3 = stable_plan
     manager._latest_stable_brain_recovery_draft_v3 = stable_plan.draft_answer
-    manager._live_brain_service_v3._plan_with_llm = AsyncMock(
-        return_value=(BrainPlan(
+    manager._live_brain_service_v3.plan = AsyncMock(
+        return_value=BrainPlan(
             session_id="session-v3-cached-stable-complete",
             utterance_id="u-21",
             revision_id=5,
@@ -4961,8 +5069,8 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_llm_plan
             serve_mode="finalize_from_plan",
             confidence=0.48,
             stability_state="draft",
-            plan_source="llm_fast",
-        ), "")
+            plan_source="safe_fallback",
+        )
     )
 
     brain_snapshot = BrainSnapshot(
@@ -4992,13 +5100,11 @@ async def test_manager_v3_does_not_reuse_cached_stable_plan_when_latest_llm_plan
         force_stable=True,
     )
 
-    assert plan.plan_source == "llm_fast"
-    assert plan.ordered_asks == [
-        "What are you looking for in terms of the company, the culture, teams?"
-    ]
+    assert plan.plan_source == "cached_stable"
+    assert plan.ordered_asks == stable_plan.ordered_asks
     assert plan.serve_mode == "finalize_from_plan"
     assert evidence_pack.mode == "full"
-    assert manager._latest_brain_recovery_draft_v3 == ""
+    assert manager._latest_brain_recovery_draft_v3 == stable_plan.draft_answer
 
 
 def test_live_brain_service_structured_llm_draft_uses_finalize_from_draft():

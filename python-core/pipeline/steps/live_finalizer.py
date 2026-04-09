@@ -525,6 +525,16 @@ class LiveFinalizer:
         )
         effective_question = self._effective_question_text(plan, question_text)
         literal_question = self._normalize_text(plan.literal_question) or self._normalize_text(question_text)
+        question_scope = getattr(plan, "question_scope", None)
+        question_scope_block = "\n".join(
+            [
+                f"- Kind: {self._normalize_text(getattr(question_scope, 'question_kind', '')) or 'None'}",
+                f"- Resolved question: {self._normalize_text(getattr(question_scope, 'resolved_question', '')) or 'None'}",
+                f"- Referent window: {' | '.join(list(getattr(question_scope, 'referent_window', []) or [])) or 'None'}",
+                f"- Required evidence mode: {self._normalize_text(getattr(question_scope, 'required_evidence_mode', '')) or 'None'}",
+                f"- Disallowed evidence modes: {' | '.join(list(getattr(question_scope, 'disallowed_evidence_modes', []) or [])) or 'None'}",
+            ]
+        )
         evidence_lines = []
         for label, items in (
             ("Candidate profile evidence", evidence_pack.candidate_snippets),
@@ -556,6 +566,8 @@ class LiveFinalizer:
             f"- Candidate build evidence: {'; '.join(evidence_pack.build_evidence) if evidence_pack.build_evidence else 'None'}",
             f"- Candidate leadership evidence: {'; '.join(evidence_pack.leadership_evidence) if evidence_pack.leadership_evidence else 'None'}",
             f"- Candidate team scope evidence: {'; '.join(evidence_pack.team_scope_evidence) if evidence_pack.team_scope_evidence else 'None'}",
+            f"- Candidate operating style evidence: {'; '.join(evidence_pack.operating_style_evidence) if evidence_pack.operating_style_evidence else 'None'}",
+            f"- Candidate client posture evidence: {'; '.join(evidence_pack.client_posture_evidence) if evidence_pack.client_posture_evidence else 'None'}",
             f"- Target alignment evidence: {'; '.join(evidence_pack.culture_alignment_evidence) if evidence_pack.culture_alignment_evidence else 'None'}",
             f"- Target technical alignment evidence: {'; '.join(evidence_pack.technical_alignment_evidence) if evidence_pack.technical_alignment_evidence else 'None'}",
         ]
@@ -636,6 +648,9 @@ SOURCE OF TRUTH CONTEXT:
 INTERVIEWER NEED:
 {interviewer_need_block}
 
+QUESTION SCOPE:
+{question_scope_block}
+
 CONTEXT FOCUS:
 {context_focus_block}
 
@@ -665,6 +680,10 @@ Instructions:
 - If Company evidence mode is none, ignore target company context.
 - If Company evidence mode is preference_alignment, use company context only to mirror preference areas, not to turn the answer into a fit pitch.
 - If Prior context mode is none, do not weave prior interviewer context into the answer.
+- If Prior context mode is disambiguate, resolve the referent from QUESTION SCOPE and CONTEXT FOCUS before choosing evidence. Do not answer a broader neighboring topic.
+- When answer mode is preferences, answer directly in terms of company, culture, team, and boundaries as requested.
+- Use candidate profile only when Profile evidence mode allows it; otherwise keep the answer entirely on stated preferences.
+- When answer mode is profile_alignment, use one concrete anchor and stop once the introduction is established; do not turn it into a full solution pitch.
 - Keep the answer natural and speakable, as if the candidate were saying it aloud now.
 - Use concrete evidence, not generic labels.
 - Do not repeat profile summaries or titles across paragraphs.
@@ -713,6 +732,9 @@ BRAIN PLAN:
 - Company evidence mode: {plan.response_requirement.company_evidence_mode or 'None'}
 - Prior context mode: {plan.response_requirement.prior_context_mode or 'None'}
 
+QUESTION SCOPE:
+{question_scope_block}
+
 ALIGNMENT BRIEF:
 {alignment_block}
 
@@ -754,6 +776,10 @@ Instructions:
 - If Company evidence mode is none, ignore target company context.
 - If Company evidence mode is preference_alignment, use company context only to mirror preference areas, not to turn the answer into a fit pitch.
 - If Prior context mode is none, do not weave prior interviewer context into the answer.
+- If Prior context mode is disambiguate, resolve the referent from QUESTION SCOPE and CONTEXT FOCUS before choosing evidence. Do not answer a broader neighboring topic.
+- When answer mode is preferences, answer directly in terms of company, culture, team, and boundaries as requested.
+- Use candidate profile only when Profile evidence mode allows it; otherwise keep the answer entirely on stated preferences.
+- When answer mode is profile_alignment, use one concrete anchor and stop once the introduction is established; do not turn it into a full solution pitch.
 - When Plan source is safe_fallback, treat WORKING DRAFT as a weak seed and prefer the contract over the draft whenever they differ.
 - Preserve the order of asks and the visible structure when the plan says coverage is ordered.
 - If there are multiple asks or focus areas, use short paragraphs separated by a blank line. Do not use bullets or headings.
@@ -935,7 +961,10 @@ Instructions:
                 draft_text=draft_text,
                 allow_profile_context=plan.candidate_context_policy != "avoid",
             )
-            if str(plan.plan_source or "").strip().lower() in {"llm_fast", "cached_stable"}
+            if (
+                str(plan.plan_source or "").strip().lower() in {"llm_fast", "cached_stable"}
+                or self._normalize_text(plan.response_family).lower() == "culture_preferences"
+            )
             else []
         )
         paragraphs: list[str] = []
@@ -984,6 +1013,21 @@ Instructions:
             sources=preferred_sources,
         )
         primary = detail if prefer_evidence and detail else sentence or detail
+        if purpose == "preferences_company" and sentence:
+            lowered_sentence = sentence.lower()
+            if lowered_sentence.startswith("i'm looking for") or lowered_sentence.startswith("i am looking for"):
+                primary = sentence
+        if purpose == "preferences_boundaries" and sentence:
+            primary = sentence or detail
+        if purpose.startswith("preferences_") and not self._normalize_text(primary):
+            primary = next(
+                (
+                    self._normalize_text(item)
+                    for item in list(preferred_sources or [])
+                    if self._normalize_text(item)
+                ),
+                "",
+            )
         if purpose == "profile_core":
             return primary
         if purpose == "alignment":
@@ -997,8 +1041,34 @@ Instructions:
         if purpose == "intro_tail":
             return primary
         if purpose.startswith("preferences_"):
-            return primary
+            return self._realize_preference_segment(purpose=purpose, primary=primary)
         return primary
+
+    def _realize_preference_segment(self, *, purpose: str, primary: str) -> str:
+        text = self._normalize_text(primary)
+        if not text:
+            return ""
+        lowered = text.lower()
+        if purpose == "preferences_company":
+            if lowered.startswith("i'm looking for") or lowered.startswith("i am looking for"):
+                return text
+            return f"On the company side, I'm looking for {self._lowercase_first(text).rstrip('.')}."
+        if purpose == "preferences_culture":
+            if lowered.startswith("in terms of culture") or lowered.startswith("culture-wise"):
+                return text
+            return f"In terms of culture, I value {self._lowercase_first(text).rstrip('.')}."
+        if purpose == "preferences_team":
+            if lowered.startswith("for the team") or lowered.startswith("on the team"):
+                return text
+            return f"For the team itself, I value {self._lowercase_first(text).rstrip('.')}."
+        if purpose == "preferences_boundaries":
+            if any(
+                needle in lowered
+                for needle in ("avoid", "don't like", "do not like", "not a fit", "comfortable with", "open to")
+            ):
+                return text
+            return f"What I tend to avoid is {self._lowercase_first(text).rstrip('.')}."
+        return text
 
     @staticmethod
     def _sources_for_blueprint_segment(
@@ -1008,10 +1078,13 @@ Instructions:
         preferred_types: list[str],
     ) -> list[str]:
         mapping = {
+            "company_snippets": list(evidence_pack.company_snippets or []),
             "role_evidence": list(evidence_pack.role_evidence or []),
             "build_evidence": list(evidence_pack.build_evidence or []),
             "leadership_evidence": list(evidence_pack.leadership_evidence or []),
             "team_scope_evidence": list(evidence_pack.team_scope_evidence or []),
+            "operating_style_evidence": list(evidence_pack.operating_style_evidence or []),
+            "client_posture_evidence": list(evidence_pack.client_posture_evidence or []),
             "culture_alignment_evidence": list(evidence_pack.culture_alignment_evidence or []),
             "technical_alignment_evidence": list(evidence_pack.technical_alignment_evidence or []),
         }
@@ -1028,7 +1101,13 @@ Instructions:
     def _should_allow_company_context_in_fallback(plan: Optional[BrainPlan]) -> bool:
         if plan is None:
             return True
+        response_requirement = getattr(plan, "response_requirement", None)
+        company_mode = str(getattr(response_requirement, "company_evidence_mode", "") or "").strip().lower()
+        if company_mode == "none":
+            return False
         if str(plan.company_context_policy or "").strip().lower() == "required":
+            return True
+        if company_mode in {"preference_alignment", "problem_mapping"}:
             return True
         response_family = str(plan.response_family or "").strip().lower()
         return response_family in {"intro_alignment", "culture_preferences", "technical_fit"}
@@ -1044,12 +1123,15 @@ Instructions:
             return [
                 *list(evidence_pack.role_evidence or []),
                 *list(evidence_pack.technical_alignment_evidence or []),
+                *list(evidence_pack.operating_style_evidence or []),
                 *list(evidence_pack.build_evidence or []),
+                *list(evidence_pack.client_posture_evidence or []),
             ]
         if family in {"behavioral_story", "mixed_multi_part"}:
             return [
                 *list(evidence_pack.build_evidence or []),
                 *list(evidence_pack.leadership_evidence or []),
+                *list(evidence_pack.client_posture_evidence or []),
                 *list(evidence_pack.team_scope_evidence or []),
             ]
         if family == "leadership_scope":
@@ -1058,10 +1140,14 @@ Instructions:
                 *list(evidence_pack.team_scope_evidence or []),
             ]
         if family == "culture_preferences":
-            return list(evidence_pack.culture_alignment_evidence or [])
+            return [
+                *list(evidence_pack.company_snippets or []),
+                *list(evidence_pack.culture_alignment_evidence or []),
+            ]
         if family == "technical_fit":
             return [
                 *list(evidence_pack.technical_alignment_evidence or []),
+                *list(evidence_pack.operating_style_evidence or []),
                 *list(evidence_pack.role_evidence or []),
             ]
         return []
@@ -1089,6 +1175,8 @@ Instructions:
                 build_evidence=evidence_pack.build_evidence,
                 leadership_evidence=evidence_pack.leadership_evidence,
                 team_scope_evidence=evidence_pack.team_scope_evidence,
+                operating_style_evidence=evidence_pack.operating_style_evidence,
+                client_posture_evidence=evidence_pack.client_posture_evidence,
                 culture_alignment_evidence=evidence_pack.culture_alignment_evidence,
                 technical_alignment_evidence=evidence_pack.technical_alignment_evidence,
                 supporting_metrics=evidence_pack.supporting_metrics,
@@ -1235,6 +1323,8 @@ Instructions:
             items.extend(list(evidence_pack.build_evidence or []))
             items.extend(list(evidence_pack.leadership_evidence or []))
             items.extend(list(evidence_pack.team_scope_evidence or []))
+            items.extend(list(evidence_pack.operating_style_evidence or []))
+            items.extend(list(evidence_pack.client_posture_evidence or []))
         if plan is None or (
             plan.company_context_policy != "avoid" and LiveFinalizer._should_allow_company_context_in_fallback(plan)
         ):
@@ -1877,13 +1967,19 @@ Instructions:
         runtime_model = str(runtime_llm.get("model") or "").strip()
 
         if alias == "main":
-            if runtime_enabled and runtime_provider == "anthropic" and runtime_api_key:
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+            )
+            openai_key = os.getenv("OPENAI_API_KEY") or (
+                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
+            )
+            if anthropic_key:
                 adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-5-20250929")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = anthropic_key
                 return adapter
-            if runtime_enabled and runtime_provider == "openai" and runtime_api_key:
+            if openai_key:
                 adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
-                adapter.api_key = runtime_api_key
+                adapter.api_key = openai_key
                 return adapter
             if runtime_enabled and runtime_provider == "ollama":
                 return OllamaLLMAdapter(model=runtime_model or "qwen3.5:latest", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
