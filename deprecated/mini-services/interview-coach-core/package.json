@@ -1,0 +1,10 @@
+{
+  "name": "interview-coach-core",
+  "version": "1.0.0",
+  "description": "Interview Coach Core Backend Service",
+  "main": "index.py",
+  "scripts": {
+    "dev": "cd /home/z/my-project/mini-services/interview-coach-core && python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload",
+    "start": "cd /home/z/my-project/mini-services/interview-coach-core && python -m uvicorn main:app --host 0.0.0.0 --port 8001"
+  }
+}

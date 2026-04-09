@@ -1,0 +1,63 @@
+{
+  "version": "2026.03.31.v3.2.1",
+  "packs": [
+    {
+      "id": "manager",
+      "label": "Manager",
+      "aliases": ["manager", "senior manager"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "weight_delta": 0.03
+        },
+        "influence_collaboration": {
+          "weight_delta": 0.03
+        }
+      }
+    },
+    {
+      "id": "director",
+      "label": "Director",
+      "aliases": ["director"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "weight_delta": 0.06
+        },
+        "impact_outcomes": {
+          "weight_delta": 0.03
+        }
+      }
+    },
+    {
+      "id": "head",
+      "label": "Head",
+      "aliases": ["head"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "weight_delta": 0.05
+        },
+        "influence_collaboration": {
+          "weight_delta": 0.04
+        }
+      }
+    },
+    {
+      "id": "principal",
+      "label": "Principal",
+      "aliases": ["principal", "staff", "principal engineer", "principal architect"],
+      "dimension_overrides": {
+        "functional_technical_depth": {
+          "weight_delta": 0.08
+        },
+        "evidence_quality": {
+          "weight_delta": 0.04
+        },
+        "influence_collaboration": {
+          "weight_delta": 0.03
+        },
+        "scope_complexity": {
+          "weight_delta": 0.02
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/clang-sys-cae7434f2a9a2b24/build_script_build-cae7434f2a9a2b24.d: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/macros.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/common.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/dynamic.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/static.rs
+
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/clang-sys-cae7434f2a9a2b24/build_script_build-cae7434f2a9a2b24: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/macros.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/common.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/dynamic.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/static.rs
+
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/macros.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/common.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/dynamic.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.8.1/build/static.rs:

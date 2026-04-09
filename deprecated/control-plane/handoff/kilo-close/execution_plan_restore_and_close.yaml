@@ -1,0 +1,257 @@
+# REFERENCE ONLY — Not active
+# See plans/CANONICAL_EXECUTION_PACK.md for active execution plan
+version: 1
+name: interview-coach-restore-and-close
+purpose: >-
+  Restore lost product-value flows from the older Z.ai coaching UX while preserving
+  the cleaned world-class architecture and closing the remaining realtime/desktop gaps.
+
+principles:
+  - Preserve current repository as the only working codebase
+  - Do not redesign the frozen architecture
+  - Do not create a parallel implementation
+  - Restore product value before adding new features
+  - Keep manual/prep coaching mode and live realtime mode as first-class product paths
+  - Bullets-first is the live critical path
+  - Full response is secondary
+  - Truthful status over inflated completion claims
+
+phases:
+  - id: R0
+    name: Baseline and truth
+    goal: Confirm current repo state locally before changing behavior
+    tasks:
+      - id: R0.1
+        title: reproduce_local_baseline
+        objective: Run package verification and capture real status on the local machine
+        files_to_modify:
+          - config/status.json
+          - worklog.md
+        commands:
+          - bash scripts/test_package.sh quick
+          - python -m pytest tests/unit -q
+          - python -m pytest tests --collect-only -q
+          - bash scripts/test_package.sh smoke
+          - bash scripts/verify_package.sh
+          - docker compose up -d
+          - curl http://localhost:8000/health
+        acceptance:
+          - Baseline results captured truthfully in status.json
+          - worklog updated with local machine reality
+          - next task recommendation based on real local state
+
+  - id: R1
+    name: Restore high-value coaching UX
+    goal: Bring back the candidate/company/CV/manual-coaching path that made the old UX useful
+    tasks:
+      - id: R1.1
+        title: reintegrate_coach_components_into_active_ui
+        objective: Reintroduce the useful coaching UX into the active web/Tauri path without breaking realtime architecture
+        files_to_modify:
+          - src/app/page.tsx
+          - src/components/coach/CandidateProfileForm.tsx
+          - src/components/coach/CompanyInfoForm.tsx
+          - src/components/coach/QuestionInput.tsx
+          - src/components/coach/SuggestionDisplay.tsx
+        acceptance:
+          - Active UI exposes candidate profile setup
+          - Active UI exposes company / role / requirement setup
+          - Active UI exposes style selection
+          - Active UI exposes manual question path as a first-class mode
+          - The older coaching components are no longer orphaned
+
+      - id: R1.2
+        title: restore_cv_ingest_and_analysis_flow
+        objective: Bring back CV paste/upload -> analyze -> structured profile flow in the active UI
+        files_to_modify:
+          - src/app/page.tsx
+          - src/app/api/coach/analyze-cv/route.ts
+          - python-core/api/server.py
+          - python-core/pipeline/steps/cv_analyzer.py
+        acceptance:
+          - User can paste CV text from the active UI
+          - UI can call analyze-cv
+          - Structured profile is returned and rendered
+          - If no API key exists, the UI shows truthful pending/demo state
+
+      - id: R1.3
+        title: unify_interview_context_model
+        objective: Ensure candidate, company, role, requirements, style, and CV are passed consistently to backend
+        files_to_modify:
+          - src/lib/session-store.ts
+          - src/app/api/coach/suggest/route.ts
+          - python-core/contracts/models.py
+          - python-core/api/server.py
+        acceptance:
+          - A single interview context schema exists
+          - Manual coaching and realtime coaching use the same context model
+          - No placeholder company/role defaults remain in the active user path
+
+  - id: R2
+    name: Improve suggestion quality and latency
+    goal: Fix the user-visible degradation in answer quality and response time
+    tasks:
+      - id: R2.1
+        title: separate_manual_fast_path_from_realtime_path
+        objective: Manual typed questions must use a faster direct coaching path rather than the full live session loop
+        files_to_modify:
+          - src/app/page.tsx
+          - src/components/coach/QuestionInput.tsx
+          - src/app/api/coach/suggest/route.ts
+          - python-core/api/server.py
+        acceptance:
+          - Typed/manual questions use direct suggest path
+          - Realtime websocket remains for live session flow
+          - Manual suggestions feel faster than current websocket/manual flow
+
+      - id: R2.2
+        title: restore_rich_context_to_suggestion_generation
+        objective: Feed candidate profile, achievements, company context, CV text, and requirements into suggest path again
+        files_to_modify:
+          - src/app/api/coach/suggest/route.ts
+          - python-core/api/server.py
+          - python-core/pipeline/realtime_pipeline.py
+          - python-core/pipeline/steps/evidence_retriever.py
+          - python-core/pipeline/steps/response_composer.py
+        acceptance:
+          - Suggestion generation receives rich context
+          - Suggestions are measurably better than current placeholder-context mode
+          - mode real/demo/fallback remains explicit
+
+      - id: R2.3
+        title: bullets_first_latency_guardrails
+        objective: Make bullets the first and fastest visible artifact in live mode
+        files_to_modify:
+          - python-core/pipeline/realtime_pipeline.py
+          - python-core/pipeline/steps/response_composer.py
+          - python-core/pipeline/steps/quality_gate.py
+          - python-core/observability/latency.py
+        acceptance:
+          - Bullets path is prioritized over full response path
+          - Full response quality gate does not block fast bullets
+          - Latency metrics are exposed for bullets and full response separately
+
+  - id: R3
+    name: Real backend mode
+    goal: Close the fake/demo gaps that directly affect quality
+    tasks:
+      - id: R3.1
+        title: real_pgvector_retrieval
+        objective: Enable real retrieval when Docker/Postgres is available locally
+        files_to_modify:
+          - python-core/pipeline/steps/evidence_retriever.py
+          - python-core/storage/database.py
+          - python-core/storage/session_repo.py
+          - scripts/import_profile_embeddings.py
+        acceptance:
+          - Real pgvector retrieval works locally when Docker is available
+          - Demo fallback remains explicit when DB is unavailable
+
+      - id: R3.2
+        title: real_llm_response_path
+        objective: Use live LLM adapter when API keys are present and expose truthful mode labels
+        files_to_modify:
+          - python-core/adapters/llm_adapter.py
+          - python-core/pipeline/steps/response_composer.py
+          - python-core/api/server.py
+        acceptance:
+          - /api/suggest can return mode=real locally
+          - Response quality improves when keys are configured
+          - No hidden demo path
+
+      - id: R3.3
+        title: real_cv_analysis_minimum
+        objective: Close CV analysis enough to power the restored candidate profile flow
+        files_to_modify:
+          - python-core/pipeline/steps/cv_analyzer.py
+          - python-core/api/server.py
+        acceptance:
+          - analyze-cv returns structured profile in real mode
+          - pending/demo mode is explicit when not available
+
+  - id: R4
+    name: Live realtime usefulness
+    goal: Close the actual live coach path
+    tasks:
+      - id: R4.1
+        title: realtime_session_e2e_useful
+        objective: Make the realtime backend useful, not only contract-correct
+        files_to_modify:
+          - python-core/api/server.py
+          - python-core/pipeline/realtime_pipeline.py
+          - python-core/conversation/tracker.py
+          - tests/integration/test_realtime_session_e2e.py
+        acceptance:
+          - Session can start, receive transcript, emit analysis, emit bullets, emit response
+          - Tracker affects output and not just structure
+
+      - id: R4.2
+        title: visible_live_mode_ui
+        objective: Make live coaching mode clearly usable in the active UI
+        files_to_modify:
+          - src/app/page.tsx
+          - src/components/realtime/SessionControlPanel.tsx
+          - src/components/realtime/AudioSettingsPanel.tsx
+          - src/components/realtime/LiveTranscriptPanel.tsx
+          - src/components/realtime/RealtimeSuggestionPanel.tsx
+        acceptance:
+          - Manual coaching mode and live coaching mode both exist in active UI
+          - User can tell what is functional, demo, partial, or stub
+          - Live bullets are rendered as first-class output
+
+  - id: R5
+    name: Desktop closeout
+    goal: Finish the macOS-first world-class product path
+    tasks:
+      - id: R5.1
+        title: screen_capturekit_real
+        objective: Implement real macOS audio capture
+        files_to_modify:
+          - tauri-app/src-tauri/src/audio/macos_capture.rs
+          - tauri-app/src-tauri/src/audio/router.rs
+          - tauri-app/src-tauri/src/audio/permissions.rs
+        acceptance:
+          - Real audio samples are captured on macOS Apple Silicon
+          - system/mic/mixed are correctly represented
+
+      - id: R5.2
+        title: tauri_happy_path
+        objective: Tauri app becomes a genuinely usable product shell rather than a partial shell
+        files_to_modify:
+          - tauri-app/src/App.tsx
+          - tauri-app/src/main.tsx
+        acceptance:
+          - Tauri app can configure context
+          - Tauri app can use manual coaching mode
+          - Tauri app can use live coaching mode when audio is available
+
+  - id: R6
+    name: Release hardening
+    goal: Finish world-class delivery discipline
+    tasks:
+      - id: R6.1
+        title: package_truth_and_verification
+        objective: Ensure package verification, README, and status remain truthful after product fixes
+        files_to_modify:
+          - README.md
+          - config/status.json
+          - scripts/verify_package.sh
+          - scripts/test_package.sh
+        acceptance:
+          - Verification scripts still pass
+          - Documentation matches repo truth
+
+      - id: R6.2
+        title: platform_hardening
+        objective: Close bootstrap/doctor/support matrix/CI as much as possible
+        files_to_modify:
+          - scripts/bootstrap_macos.sh
+          - scripts/bootstrap_linux.sh
+          - scripts/bootstrap_windows.sh
+          - scripts/doctor_macos.sh
+          - scripts/doctor_linux.sh
+          - scripts/doctor_windows.sh
+          - docs/SUPPORT_MATRIX.md
+        acceptance:
+          - Scripts are consistent with actual platform support matrix
+          - macOS Tier 1 truth is preserved

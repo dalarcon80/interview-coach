@@ -1,0 +1,24 @@
+{
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "api_key": "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",
+    "enabled": true
+  },
+  "stt": {
+    "provider": "deepgram",
+    "model": "nova-3",
+    "api_key": "a5763df7cab9fd1db0c1b29315fe0d4520f6afd9",
+    "enabled": true,
+    "local_enabled": false,
+    "local_model": "small",
+    "utterance_end_ms": 1500,
+    "endpointing_ms": 400
+  },
+  "latency": {
+    "utterance_end_ms": 1500,
+    "silence_threshold_ms": 500,
+    "min_utterance_duration_ms": 300,
+    "suggestion_cooldown_sec": 3
+  }
+}

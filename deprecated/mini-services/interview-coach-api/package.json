@@ -1,0 +1,13 @@
+{
+  "name": "interview-coach-api",
+  "version": "1.0.0",
+  "description": "Interview Coach API Service - LLM Provider Integration",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "z-ai-web-dev-sdk": "latest"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "project": "Interview Coach",
+  "version": "0.9.0-alpha",
+  "architecture_version": "3.2.1 (FROZEN)",
+  "last_updated": "2026-03-16T21:42:00Z",
+  "execution_sequence": ["R1", "R2", "R3", "R4", "R5", "R6", "R7"],
+  "current_phase": "R2",
+  "phase_name": "Runtime LLM/STT provider configuration",
+  "last_approved_task": "R1-ALIGN-PRODUCT-TRUTH-01",
+  "active_task": "R2-CONFIG-LLM-STT-01",
+  "next_task": "R3-MANUAL-REAL-01",
+  "active_gate": "GN0",
+  "canonical_validation_target": "tauri-desktop",
+  "product_ui": "tauri",
+  "preview_port": 3100,
+  "forbidden_validation_targets": [
+    "localhost:3000",
+    "web-preview-as-product"
+  ],
+  "runtime_state": {
+    "manual_coaching": "functional",
+    "backend_pipeline": "functional",
+    "backend_live_stt_code": "functional",
+    "backend_live_stt_runtime_validated": "demo",
+    "desktop_audio_bridge": "partial",
+    "speaker_turn_intelligence": "partial",
+    "live_response_usefulness": "stub",
+    "live_latency_instrumentation": "partial",
+    "live_session_persistence": "stub",
+    "live_product_e2e_validated": false,
+    "interview_context_persistence": "functional",
+    "database_connected": false,
+    "api_keys_configured": true,
+    "deepgram_api_key_available": true
+  },
+  "preserved_progress": [
+    "backend live STT qualified runtime path exists",
+    "speaker fallback correction exists in backend work",
+    "L3-TURN-02 interviewer turn assembly exists at backend scope",
+    "STT adapter connects to Deepgram and processes audio",
+    "Pipeline produces transcript -> analysis -> suggestion events"
+  ],
+  "current_blocker": "Desktop live system audio path not wired end-to-end - real system audio capture from meeting apps not connected to canonical desktop path. Microphone is secondary/optional. Cannot validate live product without desktop system audio bridge functional.",
+  "phase_status": {
+    "R1": {"name": "Product truth alignment", "status": "completed"},
+    "R2": {"name": "Runtime LLM/STT provider configuration", "status": "completed"},
+    "R3": {"name": "Manual mode with real providers", "status": "in_progress"},
+    "R4": {"name": "Desktop system audio capture", "status": "pending"},
+    "R5": {"name": "Real STT on desktop path", "status": "pending"},
+    "R6": {"name": "Speaker/turn detection", "status": "pending"},
+    "R7": {"name": "Live response usefulness", "status": "pending"}
+  },
+  "r1_align_product_truth_01": {
+    "description": "Align authoritative files to consistent product truth - system audio is primary, microphone is secondary/optional, full_response is primary artifact",
+    "status": "completed",
+    "changes": [
+      "README.md: Changed 'microphone capture path' to 'desktop live system audio capture path'",
+      "config/status.json: Updated to R1-R7 execution sequence",
+      "plans/CANONICAL_EXECUTION_PACK.md: Simplified to R1-R7 sequence"
+    ]
+  },
+  "r2_config_llm_stt_01": {
+    "description": "Runtime LLM/STT provider configuration API and UI",
+    "status": "completed",
+    "evidence": [
+      "Backend GET/PUT /api/runtime-config endpoints exist (server.py lines 322, 335)",
+      "Frontend SettingsPanel.tsx has full UI for provider/model/API key configuration",
+      "Adapters read from runtime_config.json (llm_adapter.py, stt_adapter.py)",
+      "python-core/runtime_config.json exists with valid config",
+      "api_keys_configured: true in runtime_state"
+    ]
+  }
+}

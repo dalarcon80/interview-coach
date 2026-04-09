@@ -1,0 +1,16 @@
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/release/deps/unic_char_property-16257637bdce9f2b.d: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/pkg_info.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/property.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/range_types.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/macros.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/tables.rs
+
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/release/deps/libunic_char_property-16257637bdce9f2b.rlib: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/pkg_info.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/property.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/range_types.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/macros.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/tables.rs
+
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/release/deps/libunic_char_property-16257637bdce9f2b.rmeta: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/pkg_info.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/property.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/range_types.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/macros.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/tables.rs
+
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/lib.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/pkg_info.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/property.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/range_types.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/macros.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/src/tables.rs:
+
+# env-dep:CARGO_PKG_DESCRIPTION=UNIC — Unicode Character Tools — Character Property taxonomy, contracts and build macros
+# env-dep:CARGO_PKG_NAME=unic-char-property
+# env-dep:CARGO_PKG_VERSION=0.9.0

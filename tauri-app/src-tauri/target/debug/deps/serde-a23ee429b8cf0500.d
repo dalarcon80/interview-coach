@@ -1,0 +1,14 @@
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/deps/serde-a23ee429b8cf0500.d: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/serde-a09568728fa1b505/out/private.rs
+
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/deps/libserde-a23ee429b8cf0500.rlib: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/serde-a09568728fa1b505/out/private.rs
+
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/deps/libserde-a23ee429b8cf0500.rmeta: /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/serde-a09568728fa1b505/out/private.rs
+
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/serde-a09568728fa1b505/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/serde-a09568728fa1b505/out

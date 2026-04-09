@@ -1,0 +1,25 @@
+{
+  "name": "interview-coach-repo-control-plane",
+  "private": true,
+  "version": "0.9.0-alpha",
+  "description": "Canonical control-plane root for Interview Coach. The shipped product UI lives in tauri-app/.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "tauri:dev": "cd tauri-app && npm run tauri dev",
+    "tauri:build": "cd tauri-app && npm run build",
+    "backend:dev": "cd python-core && ../.venv/bin/python main.py"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

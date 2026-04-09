@@ -1,0 +1,3 @@
+module IOSurfaceBridge {
+    header "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/include/IOSurfaceBridge-Swift.h"
+}

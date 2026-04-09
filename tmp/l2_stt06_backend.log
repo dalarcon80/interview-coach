@@ -1,0 +1,47 @@
+INFO:     Started server process [1418]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[Interview Coach] Starting Python/FastAPI backend...
+[Interview Coach] Architecture: Tauri + Rust (audio) + Python/FastAPI (core) + React/TS (UI)
+[Interview Coach] Storage: PostgreSQL + pgvector
+[Interview Coach] Providers loaded from config/providers.yaml
+[Interview Coach] Database connection: OK
+[Interview Coach] Mode resolution effective=real source=env:INTERVIEW_COACH_MODE=real api_keys=True db_connected=True pgvector_ready=True
+INFO:     127.0.0.1:49469 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49470 - "WebSocket /ws/pipeline" [accepted]
+INFO:     connection open
+[WS] Pipeline client connected
+[WS] Session context: candidate=, company=Runtime Validation Co, role=Senior Engineer
+[WS] Audio: 85336 bytes base64, buffer size: 0
+[WS][STT] stream_open session_id=c1fe0ba7-8811-4751-b462-9a8a10f392ca
+[WS] Audio: 85336 bytes base64, buffer size: 0
+INFO:     127.0.0.1:49474 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49479 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49483 - "GET /health HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:49486 - "WebSocket /ws/pipeline" [accepted]
+INFO:     connection open
+[WS] Pipeline client disconnected
+[WS] Pipeline client connected
+[WS] Session context: candidate=, company=Runtime Validation Co, role=Senior Engineer
+[WS] Audio: 85336 bytes base64, buffer size: 0
+[WS][STT] stream_open session_id=9b8b0b69-8127-4080-b70f-9d32b3b0e046
+[WS] Audio: 85336 bytes base64, buffer size: 0
+INFO:     127.0.0.1:49490 - "GET /health HTTP/1.1" 200 OK
+[WS][STT] first_final session_id=9b8b0b69-8127-4080-b70f-9d32b3b0e046 latency_ms=861
+[WS] Transcript: '[STT Error: received 1011 (internal error) Deepgram did not receive audio data or a text message within the timeout window. See https://dpgr.am/net0001; then sent 1011 (internal error) Deepgram did not receive audio data or a text message within the timeout window. See https://dpgr.am/net0001]' (final=True)
+[WS][STT] provider_error session_id=9b8b0b69-8127-4080-b70f-9d32b3b0e046 detail=[STT Error: received 1011 (internal error) Deepgram did not receive audio data or a text message within the timeout window. See https://dpgr.am/net0001; then sent 1011 (internal error) Deepgram did not receive audio data or a text message within the timeout window. See https://dpgr.am/net0001]
+[WS][STT] stream_close session_id=9b8b0b69-8127-4080-b70f-9d32b3b0e046 duration_ms=861 first_partial_latency_ms=n/a first_final_latency_ms=861 provider_errors=1
+[WS][STT] first_final session_id=c1fe0ba7-8811-4751-b462-9a8a10f392ca latency_ms=31080
+[WS] Session STT stream error: Unexpected ASGI message 'websocket.send', after sending 'websocket.close' or response already completed.
+[WS][STT] stream_close session_id=c1fe0ba7-8811-4751-b462-9a8a10f392ca duration_ms=31080 first_partial_latency_ms=n/a first_final_latency_ms=31080 provider_errors=0
+INFO:     127.0.0.1:49495 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49503 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49508 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49518 - "GET /health HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1418]

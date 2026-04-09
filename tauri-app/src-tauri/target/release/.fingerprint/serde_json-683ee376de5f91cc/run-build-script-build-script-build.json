@@ -1,0 +1,1 @@
+{"rustc":10088478398040096810,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[13795362694956882968,"build_script_build",false,6220827088648320467]],"local":[{"RerunIfChanged":{"output":"release/build/serde_json-683ee376de5f91cc/output","paths":["build.rs"]}}],"rustflags":["-C","link-arg=-Wl,-rpath,/usr/lib/swift"],"config":0,"compile_kind":0}

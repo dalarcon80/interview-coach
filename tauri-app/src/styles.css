@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Sistema de colores profesional */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-900: #1e3a8a;
+  
+  --color-accent-500: #22c55e;
+  --color-accent-600: #16a34a;
+  
+  --color-surface-50: #f8fafc;
+  --color-surface-100: #f1f5f9;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #020617;
+  
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  
+  /* Tipografía */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  /* Radios */
+  --radius: 0.625rem;
+  
+  /* Shadcn UI variables (mantenidas para compatibilidad) */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 142.1 76.2% 36.3%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom scrollbar for transcript areas */
+.transcript-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.transcript-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.transcript-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.transcript-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Animation for live indicator */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-gray-900 text-gray-100 font-sans antialiased;
+  }
+  
+  /* Scrollbar profesional */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+}
+
+@layer components {
+  /* Tarjetas con profundidad */
+  .card {
+    @apply bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-xl;
+  }
+  
+  .card-elevated {
+    @apply bg-gray-800/90 backdrop-blur-md border border-gray-600/30 rounded-xl shadow-lg shadow-black/20;
+  }
+  
+  /* Badges de estado */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .status-badge-success {
+    @apply bg-accent-500/10 text-accent-500 border border-accent-500/20;
+  }
+  
+  .status-badge-warning {
+    @apply bg-warning-500/10 text-warning-500 border border-warning-500/20;
+  }
+  
+  .status-badge-live {
+    @apply bg-primary-500/10 text-primary-400 border border-primary-500/20;
+  }
+  
+  /* Estado:idle - para indicadores sin actividad */
+  .status-badge-idle {
+    @apply border-gray-500/40 bg-gray-500/10 text-gray-500;
+  }
+  
+  /* Indicador de procesamiento */
+  .status-badge-processing {
+    @apply bg-primary-500/20 text-primary-400 border border-primary-500/30;
+  }
+}

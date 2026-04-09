@@ -1,0 +1,679 @@
+{
+  "version": "2026.03.31.v3.2.1",
+  "packs": [
+    {
+      "id": "data_leadership",
+      "label": "Director of Data",
+      "support_level": "curated",
+      "aliases": [
+        "director of data",
+        "data director",
+        "director de datos",
+        "head of data"
+      ],
+      "required_signals": [
+        {
+          "id": "data_strategy_ownership",
+          "label": "Owns data strategy or operating direction",
+          "dimension": "role_positioning",
+          "keywords": ["data strategy", "operating model", "governance", "roadmap", "portfolio"],
+          "question_family": "managerial",
+          "question_template": "What is the clearest data strategy, operating model, or transformation direction you owned, and what changed because of it?",
+          "expected_evidence": "Strategy ownership plus measurable shift in adoption, quality, or execution."
+        },
+        {
+          "id": "leadership_scale",
+          "label": "Shows people or portfolio leadership scale",
+          "dimension": "scope_complexity",
+          "keywords": ["team", "teams", "direct", "indirect", "reports", "portfolio", "regions", "global"],
+          "question_family": "managerial",
+          "question_template": "What team, portfolio, or regional scope best proves your leadership scale for this role?",
+          "expected_evidence": "Team size, layers, regions, or delivery span."
+        },
+        {
+          "id": "business_outcomes",
+          "label": "Connects leadership to business outcomes",
+          "dimension": "impact_outcomes",
+          "keywords": ["opex", "growth", "adoption", "efficiency", "revenue", "retention", "%"],
+          "question_family": "universal",
+          "question_template": "Which metric best proves the business impact of your data leadership, and over what time frame?",
+          "expected_evidence": "Metric, time frame, and business impact."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "modern_data_delivery",
+          "label": "Led modern data delivery",
+          "dimension": "functional_technical_depth",
+          "keywords": ["platform", "pipeline", "lakehouse", "warehouse", "cloud", "modernization"],
+          "question_family": "technical",
+          "question_template": "Which modern data platform or transformation program best demonstrates your technical depth for this role?",
+          "expected_evidence": "Delivery scope, stack, and technical decision quality."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "repeatable_operating_model",
+          "label": "Built a repeatable operating model",
+          "dimension": "evidence_quality",
+          "keywords": ["operating model", "governance cadence", "subscription", "quality gates"],
+          "question_family": "managerial",
+          "question_template": "What repeatable operating model or governance mechanism did you design that became a multiplier?",
+          "expected_evidence": "Reusable model and measurable effect."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "unquantified_leadership",
+          "label": "Leadership claims without scale",
+          "dimension": "scope_complexity",
+          "keywords": ["led", "managed", "owned"],
+          "rule": "leadership_without_scope"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "data_engineering_leadership",
+      "label": "Director of Data Engineering",
+      "support_level": "curated",
+      "aliases": [
+        "director of data engineering",
+        "data engineering director",
+        "director de ingenieria de datos",
+        "head of data engineering",
+        "director of engineering data"
+      ],
+      "required_signals": [
+        {
+          "id": "data_platform_delivery",
+          "label": "Led data platform or pipeline delivery",
+          "dimension": "functional_technical_depth",
+          "keywords": ["data", "platform", "pipeline", "engineering", "modernization", "warehouse", "lakehouse", "migration"],
+          "question_family": "technical",
+          "question_template": "Describe the strongest data platform, pipeline, or modernization program you led end to end. What was the architecture, the scale, and the outcome?",
+          "expected_evidence": "Architecture, delivery scope, ownership, and measurable outcome."
+        },
+        {
+          "id": "delivery_scale",
+          "label": "Shows engineering delivery scale",
+          "dimension": "scope_complexity",
+          "keywords": ["applications", "apps", "accounts", "portfolio", "regions", "team", "teams"],
+          "question_family": "managerial",
+          "question_template": "What scale markers best show the size of the engineering or modernization program you led?",
+          "expected_evidence": "Applications, accounts, teams, or regional scale."
+        },
+        {
+          "id": "engineering_outcomes",
+          "label": "Links engineering work to measurable outcomes",
+          "dimension": "impact_outcomes",
+          "keywords": ["opex", "cost", "time-to-impact", "efficiency", "delivery", "adoption", "%"],
+          "question_family": "universal",
+          "question_template": "Which measurable outcome best proves the impact of your engineering leadership?",
+          "expected_evidence": "Metric, time frame, and outcome."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "cloud_stack_depth",
+          "label": "Shows cloud and platform depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["aws", "azure", "gcp", "spark", "dbt", "terraform", "architecture", "governance"],
+          "question_family": "technical",
+          "question_template": "Which cloud, platform, or architecture decisions best demonstrate your technical depth for this role?",
+          "expected_evidence": "Stack, decision quality, and architecture rationale."
+        },
+        {
+          "id": "client_delivery",
+          "label": "Client-facing delivery leadership",
+          "dimension": "influence_collaboration",
+          "keywords": ["client", "stakeholder", "executive", "proposal", "consulting", "adoption"],
+          "question_family": "consulting_advisory",
+          "question_template": "Which client or stakeholder-facing achievement best proves your delivery leadership?",
+          "expected_evidence": "Client influence and delivery impact."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "operating_model_multiplier",
+          "label": "Built an operating model or multiplier",
+          "dimension": "evidence_quality",
+          "keywords": ["operating model", "subscription", "cadence", "quality gates", "repeatable"],
+          "question_family": "managerial",
+          "question_template": "What operating model or repeatable mechanism made your engineering organization scale better?",
+          "expected_evidence": "Repeatable operating model and measurable leverage."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "modernization_without_depth",
+          "label": "Modernization claims without architecture depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["modernization"],
+          "rule": "modernization_without_technical_detail"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "data_architecture_leadership",
+      "label": "Head / Director of Data Architecture",
+      "support_level": "curated",
+      "aliases": [
+        "head of data architecture",
+        "director of data architecture",
+        "director data architecture",
+        "director de arquitectura de datos"
+      ],
+      "required_signals": [
+        {
+          "id": "architecture_ownership",
+          "label": "Owns architecture vision and target state",
+          "dimension": "functional_technical_depth",
+          "keywords": ["architecture", "target state", "future state", "reference architecture", "roadmap"],
+          "question_family": "technical",
+          "question_template": "What target-state architecture or reference architecture have you owned that best proves architectural leadership?",
+          "expected_evidence": "Architecture ownership, decisions, and future-state design."
+        },
+        {
+          "id": "governance_signal",
+          "label": "Shows governance and standards",
+          "dimension": "evidence_quality",
+          "keywords": ["governance", "standards", "controls", "quality", "framework", "policies"],
+          "question_family": "managerial",
+          "question_template": "Which governance or standards mechanism did you design that improved execution quality or consistency?",
+          "expected_evidence": "Governance mechanism and its effect."
+        },
+        {
+          "id": "architecture_scale",
+          "label": "Makes enterprise scale explicit",
+          "dimension": "scope_complexity",
+          "keywords": ["enterprise", "portfolio", "applications", "global", "regulated", "multi-region"],
+          "question_family": "universal",
+          "question_template": "What scale markers best demonstrate the complexity of the environments you architected?",
+          "expected_evidence": "Portfolio, regulatory, or platform complexity."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "modern_stack_depth",
+          "label": "Shows modern stack depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["aws", "azure", "gcp", "spark", "dbt", "terraform", "lakehouse", "pipeline"],
+          "question_family": "technical",
+          "question_template": "Which tools, platforms, or patterns best support your data architecture credibility for this role?",
+          "expected_evidence": "Modern stack, patterns, and technical depth."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "advisory_architecture",
+          "label": "Advised stakeholders through architecture choices",
+          "dimension": "influence_collaboration",
+          "keywords": ["stakeholder", "executive", "advisory", "roadmap", "investment case"],
+          "question_family": "consulting_advisory",
+          "question_template": "Which stakeholder or roadmap engagement best proves your architecture influence?",
+          "expected_evidence": "Stakeholder influence and architecture advisory."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "framework_without_outcome",
+          "label": "Framework language without business relevance",
+          "dimension": "impact_outcomes",
+          "keywords": ["framework", "reference architecture"],
+          "rule": "architecture_without_outcome"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "data_ai_consulting",
+      "label": "Data / AI Consulting Director",
+      "support_level": "curated",
+      "aliases": [
+        "data ai consulting director",
+        "director data ai consulting",
+        "consulting director data ai",
+        "director de consultoria de datos",
+        "director de ai consulting"
+      ],
+      "required_signals": [
+        {
+          "id": "client_advisory_trust",
+          "label": "Trusted advisor and client leadership",
+          "dimension": "influence_collaboration",
+          "keywords": ["client", "trusted advisor", "stakeholder", "executive", "consulting", "roadmap"],
+          "question_family": "consulting_advisory",
+          "question_template": "Which engagement best proves your ability to advise executives and lead client-facing delivery?",
+          "expected_evidence": "Executive advisory, client leadership, and outcome."
+        },
+        {
+          "id": "practice_building",
+          "label": "Built or scaled a practice or capability",
+          "dimension": "role_positioning",
+          "keywords": ["practice", "offer", "capability", "founded", "pod", "operating model", "scaled"],
+          "question_family": "managerial",
+          "question_template": "What practice, capability, or operating model did you build that most clearly proves consulting leadership?",
+          "expected_evidence": "Practice building, scale, and adoption."
+        },
+        {
+          "id": "consulting_outcomes",
+          "label": "Shows commercial or transformation outcomes",
+          "dimension": "impact_outcomes",
+          "keywords": ["revenue", "conversion", "retention", "adoption", "opex", "accounts", "%"],
+          "question_family": "universal",
+          "question_template": "Which commercial or transformation metrics most clearly prove the impact of your consulting leadership?",
+          "expected_evidence": "Commercial or transformation metrics."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "multi_domain_delivery",
+          "label": "Led delivery across industries or domains",
+          "dimension": "scope_complexity",
+          "keywords": ["banking", "financial", "energy", "oil", "gas", "global", "regulated"],
+          "question_family": "consulting_advisory",
+          "question_template": "Which cross-industry or multi-domain program best proves the breadth of your consulting delivery?",
+          "expected_evidence": "Breadth of client delivery."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "reusable_assets",
+          "label": "Built reusable assets or accelerators",
+          "dimension": "evidence_quality",
+          "keywords": ["reusable", "accelerator", "asset", "framework", "playbook"],
+          "question_family": "consulting_advisory",
+          "question_template": "What reusable assets or accelerators did you build that improved delivery or sales effectiveness?",
+          "expected_evidence": "Reusable IP and leverage."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "operational_without_advisory",
+          "label": "Looks operational but not advisory",
+          "dimension": "influence_collaboration",
+          "keywords": ["delivery"],
+          "rule": "delivery_without_advisory_signal"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "platform_modernization_leadership",
+      "label": "Platform / Modernization Data Leader",
+      "support_level": "curated",
+      "aliases": [
+        "platform modernization data leader",
+        "modernization data leader",
+        "director de modernizacion de datos",
+        "platform leader data modernization"
+      ],
+      "required_signals": [
+        {
+          "id": "build_from_zero",
+          "label": "Built or transformed from zero",
+          "dimension": "role_positioning",
+          "keywords": ["from scratch", "zero", "built", "launched", "created", "founded", "modernization"],
+          "question_family": "managerial",
+          "question_template": "Which build-from-zero or modernization story best proves you can create a platform, service, or team from scratch?",
+          "expected_evidence": "Creation story, scale-up, and business result."
+        },
+        {
+          "id": "modernization_scale",
+          "label": "Shows modernization scale",
+          "dimension": "scope_complexity",
+          "keywords": ["applications", "accounts", "clients", "portfolio", "regions", "program", "teams"],
+          "question_family": "managerial",
+          "question_template": "What scale markers best show the size of the modernization program you led?",
+          "expected_evidence": "Program scale and delivery span."
+        },
+        {
+          "id": "operating_model_outcome",
+          "label": "Links operating model to measurable improvement",
+          "dimension": "impact_outcomes",
+          "keywords": ["operating model", "cadence", "efficiency", "time-to-impact", "adoption", "quality gates", "opex"],
+          "question_family": "universal",
+          "question_template": "What measurable delivery improvement came from the operating model or transformation approach you led?",
+          "expected_evidence": "Operating model change and measurable result."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "technical_modernization_depth",
+          "label": "Shows modernization architecture depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["architecture", "cloud", "migration", "platform", "governance", "pipeline"],
+          "question_family": "technical",
+          "question_template": "Which architecture or platform decisions best prove your modernization depth?",
+          "expected_evidence": "Architecture choices, tradeoffs, and technical outcomes."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "repeatable_transformation_playbook",
+          "label": "Built a repeatable transformation playbook",
+          "dimension": "evidence_quality",
+          "keywords": ["playbook", "repeatable", "standardized", "cadence", "workflow"],
+          "question_family": "managerial",
+          "question_template": "What repeatable transformation mechanism did you create that improved consistency or speed?",
+          "expected_evidence": "Reusable transformation mechanism."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "scratch_without_scale",
+          "label": "Build-from-zero claims without scale",
+          "dimension": "scope_complexity",
+          "keywords": ["from scratch", "zero"],
+          "rule": "build_from_zero_without_scale"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "principal_data_engineering",
+      "label": "Principal Data Engineering",
+      "support_level": "curated",
+      "preferred_archetype": "technical_leadership_principal",
+      "aliases": [
+        "principal data engineer",
+        "principal data engineering",
+        "principal data platform engineer",
+        "staff data engineer",
+        "principal data architect"
+      ],
+      "required_signals": [
+        {
+          "id": "principal_platform_depth",
+          "label": "Shows principal-level platform or pipeline depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["platform", "pipeline", "lakehouse", "warehouse", "streaming", "migration", "architecture"],
+          "question_family": "technical",
+          "question_template": "Describe the system or data platform where you carried principal-level technical ownership. What did you design, what scale did it support, and what trade-offs mattered?",
+          "expected_evidence": "Architecture ownership, scale, and technical trade-offs."
+        },
+        {
+          "id": "principal_delivery_outcome",
+          "label": "Connects technical ownership to measurable engineering outcomes",
+          "dimension": "impact_outcomes",
+          "keywords": ["latency", "throughput", "cost", "reliability", "efficiency", "%", "time-to-impact"],
+          "question_family": "universal",
+          "question_template": "Which measurable engineering or platform outcome best proves the impact of your principal-level work?",
+          "expected_evidence": "Metric, baseline or time frame, and outcome."
+        },
+        {
+          "id": "principal_cross_team_influence",
+          "label": "Shows cross-team technical influence",
+          "dimension": "influence_collaboration",
+          "keywords": ["standards", "enablement", "architecture review", "cross-team", "governance", "mentored"],
+          "question_family": "technical",
+          "question_template": "What decision, standard, or technical pattern did you influence across teams that proves principal-level impact beyond one project?",
+          "expected_evidence": "Cross-team influence and adoption."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "principal_cloud_stack",
+          "label": "Shows modern cloud and data stack depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["aws", "azure", "gcp", "spark", "dbt", "terraform", "kafka", "databricks"],
+          "question_family": "technical",
+          "question_template": "Which platforms, tooling, or patterns best demonstrate your modern data engineering depth for this role?",
+          "expected_evidence": "Concrete stack and why it mattered."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "principal_operating_leverage",
+          "label": "Created reusable technical leverage",
+          "dimension": "evidence_quality",
+          "keywords": ["framework", "accelerator", "reusable", "template", "playbook", "golden path"],
+          "question_family": "technical",
+          "question_template": "What reusable technical asset, framework, or operating mechanism multiplied delivery quality or speed?",
+          "expected_evidence": "Reusable leverage plus adoption or outcome."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "platform_without_tradeoffs",
+          "label": "Platform claims without technical decisions",
+          "dimension": "functional_technical_depth",
+          "keywords": ["platform", "pipeline", "architecture"],
+          "rule": "modernization_without_technical_detail"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "principal_architecture",
+      "label": "Principal Architecture",
+      "support_level": "curated",
+      "preferred_archetype": "technical_leadership_principal",
+      "aliases": [
+        "principal architect",
+        "principal data architect",
+        "principal platform architect",
+        "staff architect"
+      ],
+      "required_signals": [
+        {
+          "id": "principal_architecture_ownership",
+          "label": "Owns target-state or platform architecture decisions",
+          "dimension": "functional_technical_depth",
+          "keywords": ["target state", "reference architecture", "architecture", "future state", "patterns"],
+          "question_family": "technical",
+          "question_template": "What architecture did you own at principal level, and which trade-offs or design choices best prove that ownership?",
+          "expected_evidence": "Architecture ownership, decision quality, and trade-offs."
+        },
+        {
+          "id": "principal_architecture_complexity",
+          "label": "Makes system or enterprise complexity explicit",
+          "dimension": "scope_complexity",
+          "keywords": ["enterprise", "multi-region", "portfolio", "regulated", "applications", "integrations"],
+          "question_family": "technical",
+          "question_template": "What scale or complexity markers best demonstrate the environments you architected?",
+          "expected_evidence": "System complexity, integration surface, or regulatory scale."
+        },
+        {
+          "id": "principal_architecture_outcomes",
+          "label": "Shows measurable outcomes from architecture decisions",
+          "dimension": "impact_outcomes",
+          "keywords": ["latency", "reliability", "cost", "adoption", "stability", "%"],
+          "question_family": "universal",
+          "question_template": "Which measurable result best proves the business or engineering outcome of your architecture work?",
+          "expected_evidence": "Metric and outcome tied to architecture choices."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "principal_stakeholder_influence",
+          "label": "Influenced stakeholders through architecture direction",
+          "dimension": "influence_collaboration",
+          "keywords": ["stakeholder", "executive", "investment case", "roadmap", "alignment"],
+          "question_family": "consulting_advisory",
+          "question_template": "What stakeholder alignment or roadmap decision best proves your architecture influence?",
+          "expected_evidence": "Influence and resulting decision."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "principal_governance_mechanism",
+          "label": "Built architecture governance that scales",
+          "dimension": "evidence_quality",
+          "keywords": ["governance", "review board", "standards", "quality gates", "guardrails"],
+          "question_family": "technical",
+          "question_template": "What architecture governance mechanism did you create that improved consistency or speed across teams?",
+          "expected_evidence": "Reusable governance mechanism and effect."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "architecture_without_business_outcome_principal",
+          "label": "Architecture claims without outcome",
+          "dimension": "impact_outcomes",
+          "keywords": ["architecture", "reference architecture", "target state"],
+          "rule": "architecture_without_outcome"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "principal_platform_modernization",
+      "label": "Principal Platform / Modernization",
+      "support_level": "curated",
+      "preferred_archetype": "technical_leadership_principal",
+      "aliases": [
+        "principal modernization leader",
+        "principal platform modernization",
+        "principal platform architect modernization",
+        "principal transformation architect"
+      ],
+      "required_signals": [
+        {
+          "id": "principal_modernization_story",
+          "label": "Shows principal-level modernization ownership",
+          "dimension": "role_positioning",
+          "keywords": ["modernization", "migration", "from scratch", "platform", "transformation"],
+          "question_family": "technical",
+          "question_template": "Which modernization or migration story best proves principal-level ownership, and what did you personally drive in the architecture or execution model?",
+          "expected_evidence": "Modernization ownership, technical decisions, and delivery influence."
+        },
+        {
+          "id": "principal_modernization_scale",
+          "label": "Makes modernization scale explicit",
+          "dimension": "scope_complexity",
+          "keywords": ["applications", "portfolio", "program", "teams", "regions", "clients"],
+          "question_family": "universal",
+          "question_template": "What scale markers best show the size and complexity of the modernization work you owned?",
+          "expected_evidence": "Scale, complexity, and span."
+        },
+        {
+          "id": "principal_modernization_outcome",
+          "label": "Links modernization work to measurable outcome",
+          "dimension": "impact_outcomes",
+          "keywords": ["latency", "cost", "opex", "reliability", "throughput", "time-to-impact", "%"],
+          "question_family": "business_alignment_recovery",
+          "question_template": "What measurable business or engineering result best proves the value of the modernization approach you drove?",
+          "expected_evidence": "Metric and value of the modernization outcome."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "principal_modernization_architecture",
+          "label": "Shows modernization architecture depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["architecture", "cloud", "migration", "platform", "governance", "integration"],
+          "question_family": "technical",
+          "question_template": "Which architecture choices or trade-offs best demonstrate your modernization depth?",
+          "expected_evidence": "Technical decisions and trade-offs."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "principal_reusable_modernization_playbook",
+          "label": "Built reusable modernization playbooks or standards",
+          "dimension": "evidence_quality",
+          "keywords": ["playbook", "standardized", "framework", "guardrails", "repeatable"],
+          "question_family": "technical",
+          "question_template": "What reusable standards, playbooks, or technical guardrails made modernization more repeatable across teams or clients?",
+          "expected_evidence": "Reusable mechanism and adoption."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "modernization_without_scale_principal",
+          "label": "Modernization claims without explicit scale",
+          "dimension": "scope_complexity",
+          "keywords": ["modernization", "migration"],
+          "rule": "build_from_zero_without_scale"
+        }
+      ],
+      "not_applicable_defaults": []
+    },
+    {
+      "id": "principal_generic_technical_leadership",
+      "label": "Principal Generic Technical Leadership",
+      "support_level": "curated",
+      "preferred_archetype": "technical_leadership_principal",
+      "aliases": [
+        "principal",
+        "staff",
+        "principal technical leader",
+        "principal engineer",
+        "principal consultant"
+      ],
+      "required_signals": [
+        {
+          "id": "principal_explicit_positioning",
+          "label": "Shows explicit principal-level positioning",
+          "dimension": "role_positioning",
+          "keywords": ["principal", "staff", "technical leadership", "architecture direction", "cross-team influence"],
+          "question_family": "target_positioning_clarification",
+          "question_template": "How should the profile position you for principal-level roles in the clearest possible way?",
+          "expected_evidence": "Clear principal framing, strongest domain, and why-principal sentence."
+        },
+        {
+          "id": "principal_depth_story",
+          "label": "Shows one principal-level project with depth",
+          "dimension": "functional_technical_depth",
+          "keywords": ["architecture", "platform", "system", "migration", "modernization", "integration"],
+          "question_family": "project_recovery",
+          "question_template": "Which one principal-level project best proves your technical depth, architecture choices, and ownership?",
+          "expected_evidence": "Project, architecture, trade-offs, scale, ownership, and outcome."
+        },
+        {
+          "id": "principal_measurable_outcome",
+          "label": "Links principal-level work to measurable outcomes",
+          "dimension": "impact_outcomes",
+          "keywords": ["latency", "cost", "opex", "efficiency", "time-to-impact", "throughput", "reliability", "%"],
+          "question_family": "impact_recovery",
+          "question_template": "What measurable result best proves the impact of your principal-level work?",
+          "expected_evidence": "Baseline, metric, achieved change, timeframe, and your role."
+        }
+      ],
+      "supporting_signals": [
+        {
+          "id": "principal_scope_markers",
+          "label": "Makes system or program scale explicit",
+          "dimension": "scope_complexity",
+          "keywords": ["applications", "platform", "program", "clients", "regions", "integrations", "pipelines"],
+          "question_family": "scope_recovery",
+          "question_template": "What scope markers best show the size and complexity of the work you influenced at principal level?",
+          "expected_evidence": "System, platform, client, or program scale."
+        },
+        {
+          "id": "principal_technical_influence",
+          "label": "Shows cross-team technical influence",
+          "dimension": "influence_collaboration",
+          "keywords": ["stakeholder", "alignment", "technical influence", "cross-team", "direction", "roadmap"],
+          "question_family": "business_alignment_recovery",
+          "question_template": "What cross-team decision or technical direction did you influence that changed the outcome?",
+          "expected_evidence": "Technical influence and resulting decision."
+        }
+      ],
+      "differentiator_signals": [
+        {
+          "id": "principal_reusable_leverage",
+          "label": "Built reusable technical leverage",
+          "dimension": "evidence_quality",
+          "keywords": ["playbook", "guardrails", "reusable", "pattern", "framework", "operating model"],
+          "question_family": "project_recovery",
+          "question_template": "What reusable patterns, standards, or frameworks did you create that scaled beyond one project?",
+          "expected_evidence": "Reusable technical leverage and adoption."
+        }
+      ],
+      "anti_signals": [
+        {
+          "id": "principal_without_specifics",
+          "label": "Principal positioning without concrete proof",
+          "dimension": "evidence_quality",
+          "keywords": ["principal", "staff", "technical leadership"],
+          "rule": "modernization_without_technical_detail"
+        }
+      ],
+      "not_applicable_defaults": []
+    }
+  ]
+}

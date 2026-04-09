@@ -1,0 +1,13 @@
+{
+  "name": "interview-coach-ws",
+  "version": "1.0.0",
+  "description": "Interview Coach WebSocket Service - Real-time communication",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.0"
+  }
+}

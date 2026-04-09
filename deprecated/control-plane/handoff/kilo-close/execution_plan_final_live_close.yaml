@@ -1,0 +1,274 @@
+# REFERENCE ONLY — Not active
+# See plans/CANONICAL_EXECUTION_PACK.md for active execution plan
+project: interview-coach
+source_of_truth: current_repository
+strategy: close-on-local-macos
+mode: direct-kilo-agent
+
+principles:
+  - Use the current repository only.
+  - Do not redesign the architecture.
+  - Bullets-first latency is the primary live-product SLA.
+  - Full response is secondary/reference, not primary pre-speech help.
+  - Demo/real/partial/stub labels must stay honest.
+  - macOS Apple Silicon is Tier 1; Windows/Linux are installable with graceful degradation.
+  - Kilo must operate with explicit governance, rules, checkpoints, and verification.
+  - Preserve the frozen world-class architecture from upload/ARCHITECTURE.md.
+
+phase_gates:
+  P0:
+    description: Local truth and package health
+    must_pass:
+      - python -m pytest tests --collect-only -q
+      - bash scripts/test_package.sh quick
+      - bash scripts/test_package.sh smoke
+      - bash scripts/verify_package.sh
+  P1:
+    description: Real backend mode
+    must_pass:
+      - docker compose up -d
+      - curl http://localhost:8000/health
+      - real retrieval proof with pgvector
+      - real suggest proof with API keys
+  P2:
+    description: Realtime usefulness
+    must_pass:
+      - backend websocket e2e test
+      - bullets visible from official backend flow
+      - tracker state updates across exchanges
+  P3:
+    description: Desktop macOS happy path
+    must_pass:
+      - tauri dev starts on macOS
+      - ScreenCaptureKit happy path produces real samples
+      - desktop receives transcript/suggestion from backend
+  P4:
+    description: Release hardening
+    must_pass:
+      - platform bootstrap scripts present
+      - doctor scripts present
+      - support matrix honest
+      - CI matrix defined
+
+tasks:
+  - id: P0.1
+    title: verify_baseline_on_local_macos
+    goal: Reproduce the true state on the user's machine before any new code changes.
+    depends_on: []
+    files_to_touch:
+      - config/status.json
+      - worklog.md
+    commands:
+      - bash scripts/test_package.sh quick
+      - python -m pytest tests/unit -q
+      - python -m pytest tests --collect-only -q
+      - bash scripts/test_package.sh smoke
+      - bash scripts/verify_package.sh
+    tests_required:
+      - tests/unit
+      - collect-only
+      - smoke
+    acceptance:
+      - All command outputs captured verbatim in worklog.md.
+      - config/status.json updated with real local results.
+      - No optimistic claims unsupported by local execution.
+
+  - id: P0.2
+    title: close_package_health_on_local
+    goal: Fix any remaining local package health issues until collect-only, quick, smoke, and verify all pass.
+    depends_on: [P0.1]
+    files_to_touch:
+      - python-core/observability/setup.py
+      - python-core/observability/__init__.py
+      - tests/**
+      - scripts/test_package.sh
+      - scripts/verify_package.sh
+      - config/status.json
+      - README.md
+    acceptance:
+      - Local package verification passes.
+      - README and status match local truth exactly.
+      - No broken optional imports can break test collection.
+
+  - id: P1.1
+    title: enable_postgres_pgvector_real_mode
+    goal: Bring PostgreSQL + pgvector online locally and prove retrieval can run in real mode.
+    depends_on: [P0.2]
+    files_to_touch:
+      - docker-compose.yml
+      - python-core/storage/database.py
+      - python-core/storage/session_repo.py
+      - python-core/pipeline/steps/evidence_retriever.py
+      - scripts/import_profile_embeddings.py
+      - config/status.json
+    commands:
+      - docker compose up -d
+      - python scripts/import_profile_embeddings.py
+      - curl http://localhost:8000/health
+    acceptance:
+      - health shows db_connected=true locally.
+      - evidence retriever reports mode=real when DB is available.
+      - demo fallback still works when DB is unavailable.
+
+  - id: P1.2
+    title: enable_real_llm_mode
+    goal: Wire real LLM providers through aliases and verify /api/suggest returns mode=real when keys are present.
+    depends_on: [P1.1]
+    files_to_touch:
+      - config/providers.yaml
+      - python-core/adapters/provider_registry.py
+      - python-core/adapters/llm_adapter.py
+      - python-core/pipeline/steps/response_composer.py
+      - python-core/api/server.py
+      - config/status.json
+    acceptance:
+      - With valid ANTHROPIC_API_KEY or OPENAI_API_KEY, /api/suggest returns mode=real.
+      - Without keys, /api/suggest returns mode=demo or fallback explicitly.
+      - No hidden mock path in the default real configuration.
+
+  - id: P1.3
+    title: implement_minimal_real_cv_analysis
+    goal: Make CV analysis genuinely useful when API keys are present.
+    depends_on: [P1.2]
+    files_to_touch:
+      - python-core/pipeline/steps/cv_analyzer.py
+      - python-core/api/server.py
+      - tests/integration/test_suggest_mode.py
+      - config/status.json
+    acceptance:
+      - /api/analyze-cv returns structured output in real mode.
+      - 501 only when keys are missing or feature is intentionally disabled.
+      - README/status reflect exact truth.
+
+  - id: P2.1
+    title: close_realtime_backend_flow
+    goal: Make realtime session flow useful for the live coaching use case.
+    depends_on: [P1.3]
+    files_to_touch:
+      - python-core/api/server.py
+      - python-core/pipeline/realtime_pipeline.py
+      - python-core/contracts/models.py
+      - python-core/conversation/tracker.py
+      - tests/integration/test_realtime_session_e2e.py
+    acceptance:
+      - start_session, transcript_ready, analysis, suggestion, session_ended flow passes.
+      - conversation tracker updates across exchanges.
+      - bullets are surfaced as the primary fast artifact.
+
+  - id: P2.2
+    title: optimize_bullets_first_path
+    goal: Align implementation with the true product objective: bullets-first usefulness in live interviews.
+    depends_on: [P2.1]
+    files_to_touch:
+      - python-core/pipeline/realtime_pipeline.py
+      - python-core/pipeline/steps/question_analyzer.py
+      - python-core/pipeline/steps/quality_gate.py
+      - python-core/observability/latency.py
+      - tests/benchmarks/test_latency_benchmarks.py
+    acceptance:
+      - Bullets path is independent from full response gate.
+      - Latency instrumentation exists for question end -> bullets visible.
+      - README/status reflect bullets-first product truth.
+
+  - id: P2.3
+    title: harden_language_and_tracker_realtime
+    goal: Ensure language policy and conversation tracker are trustworthy in live mode.
+    depends_on: [P2.2]
+    files_to_touch:
+      - python-core/pipeline/steps/language_policy.py
+      - python-core/conversation/tracker.py
+      - tests/unit/test_language_policy.py
+      - tests/simulations/test_simulation_runner.py
+    acceptance:
+      - No mixed-language final response unless explicitly allowed.
+      - Tracker prevents repeated metrics and contradiction drift across turns.
+
+  - id: P3.1
+    title: validate_tauri_shell_on_macos
+    goal: Make sure the desktop shell starts and talks to the backend correctly on the user's Mac.
+    depends_on: [P2.3]
+    files_to_touch:
+      - tauri-app/src/App.tsx
+      - tauri-app/package.json
+      - docs/SUPPORT_MATRIX.md
+    commands:
+      - cd tauri-app && npm install
+      - cd tauri-app && npm run tauri dev
+    acceptance:
+      - Tauri shell launches locally on macOS.
+      - It can call the backend using the official contract.
+      - UI labels remain honest about partial/stub capabilities.
+
+  - id: P3.2
+    title: implement_screencapturekit_happy_path
+    goal: Close the biggest product blocker: real macOS audio capture.
+    depends_on: [P3.1]
+    files_to_touch:
+      - tauri-app/src-tauri/src/audio/macos_capture.rs
+      - tauri-app/src-tauri/src/audio/router.rs
+      - tauri-app/src-tauri/src/audio/permissions.rs
+      - tests/manual/audio_capture_checklist.md
+      - config/status.json
+    acceptance:
+      - Real samples captured on macOS Apple Silicon.
+      - At least one documented manual verification passes.
+      - Audio state changes from stub to partial/functional honestly.
+
+  - id: P3.3
+    title: close_desktop_live_happy_path
+    goal: Make desktop mode useful end-to-end for live coaching.
+    depends_on: [P3.2]
+    files_to_touch:
+      - tauri-app/src/App.tsx
+      - python-core/api/server.py
+      - docs/LIVE_USAGE_GUIDE.md
+    acceptance:
+      - Desktop can start a session, receive live transcript, show bullets, and show full response.
+      - Manual text fallback still works.
+      - Live usage guide documents what is supported and what is not.
+
+  - id: P4.1
+    title: platform_bootstrap_and_doctor_hardening
+    goal: Make installation reproducible across macOS, Linux, and Windows.
+    depends_on: [P3.3]
+    files_to_touch:
+      - scripts/bootstrap_macos.sh
+      - scripts/bootstrap_linux.sh
+      - scripts/bootstrap_windows.sh
+      - scripts/doctor_macos.sh
+      - scripts/doctor_linux.sh
+      - scripts/doctor_windows.sh
+      - docs/SUPPORT_MATRIX.md
+    acceptance:
+      - Scripts are present and documented.
+      - macOS is Tier 1.
+      - Windows/Linux are installable with explicit degradation.
+
+  - id: P4.2
+    title: ci_matrix_and_release_truth
+    goal: Finish with governance, CI, and honest release posture.
+    depends_on: [P4.1]
+    files_to_touch:
+      - .github/workflows/ci.yml
+      - README.md
+      - config/status.json
+      - docs/SUPPORT_MATRIX.md
+    acceptance:
+      - CI matrix declared for macOS, Ubuntu, Windows.
+      - Status and docs reflect truth, not aspiration.
+      - No component is labeled complete if it is still demo, partial, or stub.
+
+execution_governance:
+  per_task_rules:
+    - Implement one task at a time.
+    - Do not skip acceptance checks.
+    - After each task, update config/status.json and worklog.md.
+    - Do not mark a task complete if proof is missing.
+    - Prefer refactor-in-place over parallel implementations.
+  proof_required:
+    - files_changed
+    - exact_commands_run
+    - tests_run
+    - acceptance_proof
+    - blockers
+    - next_task

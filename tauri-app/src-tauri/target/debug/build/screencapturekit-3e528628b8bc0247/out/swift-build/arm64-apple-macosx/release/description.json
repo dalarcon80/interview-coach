@@ -1,0 +1,1305 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.CoreGraphicsBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreGraphics/CoreGraphics.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "CoreGraphicsBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreGraphicsBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/CoreGraphics.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/include/CoreGraphicsBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/CoreGraphics.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreGraphicsBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreGraphics/CoreGraphics.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.CoreMediaBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreMedia/CoreMedia.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "CoreMediaBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreMediaBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/CoreMedia.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/include/CoreMediaBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/CoreMedia.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreMediaBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreMedia/CoreMedia.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.CoreVideoBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreVideo/CoreVideo.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "CoreVideoBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreVideoBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/CoreVideo.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/include/CoreVideoBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/CoreVideo.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreVideoBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreVideo/CoreVideo.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.DispatchBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Dispatch/Dispatch.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "DispatchBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/DispatchBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/Dispatch.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/include/DispatchBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/Dispatch.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/DispatchBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Dispatch/Dispatch.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.IOSurfaceBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/IOSurface/IOSurface.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "IOSurfaceBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/IOSurfaceBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/IOSurface.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/include/IOSurfaceBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/IOSurface.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/IOSurfaceBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/IOSurface/IOSurface.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.MetalBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Metal/Metal.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "MetalBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/MetalBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/Metal.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/include/MetalBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/Metal.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/MetalBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Metal/Metal.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.ScreenCaptureKitBridge-arm64-apple-macosx-release.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/sources",
+      "importPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/AudioDevices.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ContentSharingPicker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Core.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/RecordingOutput.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ScreenshotManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ShareableContent.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Stream.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/StreamConfiguration.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreMediaBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreVideoBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/CoreGraphicsBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/IOSurfaceBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/DispatchBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/MetalBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "ScreenCaptureKitBridge",
+      "moduleOutputPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/ScreenCaptureKitBridge.swiftmodule",
+      "objects" : [
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.swift.o",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/include/ScreenCaptureKitBridge-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "swift_bridge"
+      ],
+      "outputFileMapPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules/ScreenCaptureKitBridge.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/AudioDevices.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ContentSharingPicker.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Core.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/RecordingOutput.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ScreenshotManager.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ShareableContent.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Stream.swift",
+        "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/StreamConfiguration.swift"
+      ],
+      "tempsPath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "CoreGraphicsBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "CoreGraphicsBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreGraphics/CoreGraphics.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/include/CoreGraphicsBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "CoreMediaBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "CoreMediaBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreMedia/CoreMedia.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/include/CoreMediaBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "CoreVideoBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "CoreVideoBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreVideo/CoreVideo.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/include/CoreVideoBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "DispatchBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "DispatchBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Dispatch/Dispatch.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/include/DispatchBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "IOSurfaceBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "IOSurfaceBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/IOSurface/IOSurface.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/include/IOSurfaceBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "MetalBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "MetalBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Metal/Metal.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/include/MetalBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "ScreenCaptureKitBridge" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "ScreenCaptureKitBridge",
+      "-package-name",
+      "swift_bridge",
+      "-c",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/AudioDevices.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ContentSharingPicker.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Core.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/RecordingOutput.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ScreenshotManager.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ShareableContent.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Stream.swift",
+      "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/StreamConfiguration.swift",
+      "-I",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/include/ScreenCaptureKitBridge-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "swift_bridge",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "CoreGraphicsBridge" : [
+
+    ],
+    "CoreMediaBridge" : [
+
+    ],
+    "CoreVideoBridge" : [
+
+    ],
+    "DispatchBridge" : [
+
+    ],
+    "IOSurfaceBridge" : [
+
+    ],
+    "MetalBridge" : [
+
+    ],
+    "ScreenCaptureKitBridge" : [
+      "MetalBridge",
+      "DispatchBridge",
+      "IOSurfaceBridge",
+      "CoreGraphicsBridge",
+      "CoreVideoBridge",
+      "CoreMediaBridge"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreGraphics/CoreGraphics.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreMedia/CoreMedia.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/CoreVideo/CoreVideo.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Dispatch/Dispatch.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/IOSurface/IOSurface.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/Metal/Metal.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/AudioDevices.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ContentSharingPicker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Core.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/RecordingOutput.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ScreenshotManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ShareableContent.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Stream.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/StreamConfiguration.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/sources"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreGraphicsBridge.build/CoreGraphics.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreMediaBridge.build/CoreMedia.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/CoreVideoBridge.build/CoreVideo.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/DispatchBridge.build/Dispatch.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/IOSurfaceBridge.build/IOSurface.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/MetalBridge.build/Metal.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.product/Objects.LinkFileList"
+    },
+    "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/swift-version--1AB21518FC5DEDBE.txt"
+    }
+  }
+}

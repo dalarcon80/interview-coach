@@ -1,0 +1,171 @@
+{
+  "benchmark_results": [
+    {
+      "name": "pipeline_es-001",
+      "metrics": [
+        {
+          "step_name": "stt_final",
+          "duration_ms": 1421.28,
+          "target_ms": 1500,
+          "passed": true
+        },
+        {
+          "step_name": "question_analysis",
+          "duration_ms": 325.43,
+          "target_ms": 400,
+          "passed": true
+        },
+        {
+          "step_name": "evidence_retrieval",
+          "duration_ms": 84.23,
+          "target_ms": 100,
+          "passed": true
+        },
+        {
+          "step_name": "bullets_generation",
+          "duration_ms": 294.34,
+          "target_ms": 300,
+          "passed": true
+        },
+        {
+          "step_name": "mini_gate",
+          "duration_ms": 28.6,
+          "target_ms": 50,
+          "passed": true
+        },
+        {
+          "step_name": "response_generation",
+          "duration_ms": 2388.1,
+          "target_ms": 3000,
+          "passed": true
+        },
+        {
+          "step_name": "quality_gate",
+          "duration_ms": 408.29,
+          "target_ms": 500,
+          "passed": true
+        }
+      ],
+      "total_ms": 4950.27,
+      "all_passed": true,
+      "pass_rate": 1.0
+    },
+    {
+      "name": "pipeline_es-002",
+      "metrics": [
+        {
+          "step_name": "stt_final",
+          "duration_ms": 1363.07,
+          "target_ms": 1500,
+          "passed": true
+        },
+        {
+          "step_name": "question_analysis",
+          "duration_ms": 405.61,
+          "target_ms": 400,
+          "passed": false
+        },
+        {
+          "step_name": "evidence_retrieval",
+          "duration_ms": 73.69,
+          "target_ms": 100,
+          "passed": true
+        },
+        {
+          "step_name": "bullets_generation",
+          "duration_ms": 294.38,
+          "target_ms": 300,
+          "passed": true
+        },
+        {
+          "step_name": "mini_gate",
+          "duration_ms": 32.34,
+          "target_ms": 50,
+          "passed": true
+        },
+        {
+          "step_name": "response_generation",
+          "duration_ms": 2561.39,
+          "target_ms": 3000,
+          "passed": true
+        },
+        {
+          "step_name": "quality_gate",
+          "duration_ms": 337.65,
+          "target_ms": 500,
+          "passed": true
+        }
+      ],
+      "total_ms": 5068.13,
+      "all_passed": false,
+      "pass_rate": 0.86
+    },
+    {
+      "name": "pipeline_es-003",
+      "metrics": [
+        {
+          "step_name": "stt_final",
+          "duration_ms": 1019.61,
+          "target_ms": 1500,
+          "passed": true
+        },
+        {
+          "step_name": "question_analysis",
+          "duration_ms": 292.9,
+          "target_ms": 400,
+          "passed": true
+        },
+        {
+          "step_name": "evidence_retrieval",
+          "duration_ms": 64.84,
+          "target_ms": 100,
+          "passed": true
+        },
+        {
+          "step_name": "bullets_generation",
+          "duration_ms": 241.01,
+          "target_ms": 300,
+          "passed": true
+        },
+        {
+          "step_name": "mini_gate",
+          "duration_ms": 27.2,
+          "target_ms": 50,
+          "passed": true
+        },
+        {
+          "step_name": "response_generation",
+          "duration_ms": 2242.6,
+          "target_ms": 3000,
+          "passed": true
+        },
+        {
+          "step_name": "quality_gate",
+          "duration_ms": 477.62,
+          "target_ms": 500,
+          "passed": true
+        }
+      ],
+      "total_ms": 4365.78,
+      "all_passed": true,
+      "pass_rate": 1.0
+    }
+  ],
+  "summary": {
+    "total_runs": 3,
+    "all_passed": false,
+    "average_pass_rate": 0.9523809523809524
+  },
+  "latency_targets": {
+    "stt_partial": 500,
+    "stt_final": 1500,
+    "question_analysis": 400,
+    "evidence_retrieval": 100,
+    "bullets_generation": 300,
+    "mini_gate": 50,
+    "response_generation": 3000,
+    "quality_gate": 500,
+    "total_bullets": 2000,
+    "total_response": 5000
+  }
+}

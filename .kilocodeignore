@@ -1,0 +1,12 @@
+deprecated/**
+upload/**
+.zscripts/**
+**/.DS_Store
+**/node_modules/**
+**/__pycache__/**
+**/.pytest_cache/**
+**/dist/**
+**/build/**
+**/.next/**
+**/target/**
+**/*.log

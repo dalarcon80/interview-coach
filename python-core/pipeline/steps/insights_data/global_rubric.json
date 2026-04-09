@@ -1,0 +1,48 @@
+{
+  "version": "2026.03.31.v3.2.1",
+  "resolver_version": "2026.03.31.v3.2.1",
+  "dimensions": [
+    {
+      "id": "role_positioning",
+      "label": "Role Positioning",
+      "weight": 0.16,
+      "description": "How clearly the CV positions the candidate for the target role."
+    },
+    {
+      "id": "evidence_quality",
+      "label": "Evidence Quality",
+      "weight": 0.16,
+      "description": "How grounded the claims are in concrete examples, ownership, and outcomes."
+    },
+    {
+      "id": "impact_outcomes",
+      "label": "Impact / Outcomes",
+      "weight": 0.16,
+      "description": "How clearly business, delivery, or transformation outcomes are demonstrated."
+    },
+    {
+      "id": "scope_complexity",
+      "label": "Scope / Complexity",
+      "weight": 0.15,
+      "description": "How well the CV conveys organizational, program, technical, or systems scale."
+    },
+    {
+      "id": "functional_technical_depth",
+      "label": "Functional / Technical Depth",
+      "weight": 0.15,
+      "description": "How clearly the candidate demonstrates meaningful depth for the target family."
+    },
+    {
+      "id": "influence_collaboration",
+      "label": "Influence / Collaboration",
+      "weight": 0.12,
+      "description": "How clearly the candidate shows leadership, stakeholder influence, or cross-functional alignment."
+    },
+    {
+      "id": "cv_clarity_ats",
+      "label": "CV Clarity / ATS",
+      "weight": 0.10,
+      "description": "How scanable, readable, and well-structured the CV is."
+    }
+  ]
+}

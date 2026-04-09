@@ -1,0 +1,1 @@
+{"rustc":10088478398040096810,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[6545091685033313457,"build_script_build",false,1719236783742819168]],"local":[{"RerunIfChanged":{"output":"release/build/parking_lot_core-b2140344561394e8/output","paths":["build.rs"]}}],"rustflags":["-C","link-arg=-Wl,-rpath,/usr/lib/swift"],"config":0,"compile_kind":0}

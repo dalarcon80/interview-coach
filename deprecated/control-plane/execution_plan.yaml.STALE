@@ -1,0 +1,172 @@
+# STALE — Reference only
+# See plans/CANONICAL_EXECUTION_PACK.md for active execution plan
+# This file preserved for historical reference only
+project:
+  name: "Interview Coach"
+  version: "1.0"
+  platform: "macOS-first desktop product with preview web reference surface"
+  mode: "single-agent-direct-execution"
+  total_phases: 8
+  source_of_truth_files:
+    - "README.md"
+    - "AGENTS.md"
+    - "config/execution_plan.yaml"
+    - "config/status.json"
+    - "docs/CLOSURE_GAP_MATRIX.md"
+    - "docs/SUPPORT_MATRIX.md"
+
+global_rules:
+  - "Implement one task at a time"
+  - "Do not change the frozen architecture without explicit approval"
+  - "Tauri is the canonical UI; Next.js is preview/dev/reference only"
+  - "Full responses are the primary visible artifact in manual and live modes"
+  - "Bullets are internal or secondary only"
+  - "CV intake, AI CV analysis, saved profile, company context, and InterviewContext persistence are mandatory"
+  - "PostgreSQL + pgvector only in the core path"
+  - "Tests and verification commands are mandatory for each approved task"
+  - "config/status.json must stay aligned with verified reality"
+
+phases:
+  - id: "F0"
+    name: "Truth + canonical scope"
+    description: "Lock the canonical product decisions, close the documentation/truth gap, and establish the F0-F7 closure sequence as the governance baseline."
+    status: "complete"
+    dependencies: []
+    tasks:
+      - "Refine the closure gap matrix so it truthfully classifies the repository against the frozen architecture"
+      - "Create a user-facing guide for the current product surface and constraints"
+      - "Create a developer runbook that explains repository structure, verification flow, and operating rules"
+      - "Replace stale governance references with the canonical F0-F7 closure sequence"
+      - "Freeze product decisions around canonical UI, full-response-first UX, mandatory CV/context capabilities, and persistence requirements"
+    acceptance_criteria:
+      - "`docs/CLOSURE_GAP_MATRIX.md` truthfully documents component status, gaps, and the F0-F7 closure sequence"
+      - "`docs/USER_GUIDE.md` exists and reflects the current product honestly"
+      - "`docs/DEVELOPER_RUNBOOK.md` exists and explains verification and repo workflow"
+      - "Governance config files use F0-F7 phase naming instead of stale O1-O5 references"
+
+  - id: "F1"
+    name: "Restore product value inside Tauri"
+    description: "Bring the canonical Tauri UI up to product value parity for preparation/manual coaching, replacing thin monolithic UX with the required core capabilities."
+    status: "pending"
+    dependencies:
+      - "F0"
+    tasks:
+      - "Add CV intake to the Tauri UI, including paste/upload flow and explicit mode labeling"
+      - "Add AI CV analysis to Tauri and map extracted profile data into editable state"
+      - "Expand the saved profile form to support the rich candidate fields required by the product"
+      - "Expand company and role context capture to include rich job and culture context"
+      - "Improve style and language selection UX inside Tauri"
+      - "Make the full response the primary visible artifact in manual and live surfaces, with bullets secondary"
+      - "Break the monolithic desktop UI into maintainable components without creating a parallel architecture"
+    acceptance_criteria:
+      - "Tauri supports CV intake, AI CV analysis, saved candidate profile, company context, style selection, and manual question flow"
+      - "The Tauri UI presents full responses as the primary output in both preparation and live experiences"
+      - "The Next.js app is explicitly treated as preview/dev/reference only, not the canonical product"
+      - "The Tauri surface is sufficient for a truthful end-to-end manual coaching happy path"
+
+  - id: "F2"
+    name: "InterviewContext persistence"
+    description: "Persist the full interview context so candidate, company, style, language, and session defaults survive restart and reload cleanly."
+    status: "pending"
+    dependencies:
+      - "F1"
+    tasks:
+      - "Define the canonical persisted InterviewContext payload for raw CV, parsed profile, company context, style, language, and session defaults"
+      - "Implement load-on-startup and save-on-change behavior for the canonical Tauri flow"
+      - "Persist and reload context through the approved PostgreSQL backbone and/or verified local desktop state where appropriate"
+      - "Wire persistence into session creation so new sessions inherit the saved defaults"
+      - "Add truthful verification for restart/reload persistence behavior"
+    acceptance_criteria:
+      - "Raw CV, parsed profile, company context, style, language, and session defaults survive application restart"
+      - "A reopened Tauri app reloads the previously saved InterviewContext without manual re-entry"
+      - "Persistence behavior is explicitly verified and truthfully labeled in status"
+
+  - id: "F3"
+    name: "Fast manual coaching path"
+    description: "Optimize the direct manual coaching path so it is fast, context-rich, and centered on full responses as the primary artifact."
+    status: "pending"
+    dependencies:
+      - "F2"
+    tasks:
+      - "Keep the manual coaching path direct instead of routing through the live WebSocket path"
+      - "Prioritize full responses as the main manual output while retaining bullets only as supporting detail"
+      - "Ensure candidate profile, company context, style, and language are fully included in manual suggestion generation"
+      - "Reduce unnecessary latency and improve perceived responsiveness for manual coaching"
+      - "Verify the manual path remains truthful about real, demo, and fallback modes"
+    acceptance_criteria:
+      - "Manual questions use a direct fast path with full context"
+      - "Full responses are the primary visible manual output"
+      - "Manual mode remains clearly labeled for real/demo/fallback behavior"
+      - "The manual coaching path is materially faster and more useful than the current baseline"
+
+  - id: "F4"
+    name: "Real mode"
+    description: "Close the real-mode gap by ensuring retrieval, composition, and CV analysis work genuinely with external services while demo remains an explicit fallback."
+    status: "pending"
+    dependencies:
+      - "F3"
+    tasks:
+      - "Verify and harden real pgvector retrieval for production-shaped queries"
+      - "Verify and harden real LLM response composition with explicit provider/model metadata"
+      - "Verify and harden real CV analysis with graceful fallback"
+      - "Keep demo mode explicit and prevent demo behavior from appearing as real mode"
+      - "Document the real-mode prerequisites and verification path clearly"
+    acceptance_criteria:
+      - "With PostgreSQL and API keys available, the backend performs real retrieval and real LLM composition"
+      - "Real CV analysis produces structured output and truthful mode labeling"
+      - "When prerequisites are unavailable, demo/fallback behavior remains explicit and graceful"
+      - "Status and docs distinguish functional real mode from fallback-only behavior"
+
+  - id: "F5"
+    name: "Live usefulness"
+    description: "Make live coaching actually useful by closing session lifecycle, tracker continuity, and full-response UX gaps, while preserving a manual text fallback."
+    status: "pending"
+    dependencies:
+      - "F4"
+    tasks:
+      - "Integrate persistent session lifecycle behavior with the live WebSocket path"
+      - "Ensure conversation tracker state influences follow-up responses across turns"
+      - "Make full responses the primary live artifact while allowing secondary bullets or progress cues"
+      - "Support live/manual text fallback when audio or STT paths are unavailable"
+      - "Verify multi-turn usefulness with continuity-focused end-to-end tests"
+    acceptance_criteria:
+      - "Live sessions preserve useful context and tracker continuity across turns"
+      - "Live mode presents full responses as the primary visible output"
+      - "Users can still operate through a truthful manual text fallback when real audio flow is unavailable"
+      - "End-to-end live usefulness is verified with multi-turn acceptance checks"
+
+  - id: "F6"
+    name: "Audio real on macOS"
+    description: "Finish the real macOS audio path from ScreenCaptureKit through IPC/STT into transcript-driven live coaching."
+    status: "pending"
+    dependencies:
+      - "F5"
+    tasks:
+      - "Complete the ScreenCaptureKit path for mic, system, and mixed capture modes"
+      - "Implement the broken IPC/audio bridge from Rust capture to the backend live pipeline"
+      - "Wire captured frames into the STT adapter so the live path receives real transcripts"
+      - "Handle capture permissions, errors, and graceful degradation on unsupported states"
+      - "Verify transcript-to-response flow end to end on macOS Apple Silicon"
+    acceptance_criteria:
+      - "Real macOS audio capture reaches the backend through a working IPC bridge"
+      - "Captured audio produces transcripts that drive live coaching responses"
+      - "Mic/system/mixed capture modes behave truthfully on the supported macOS path"
+      - "Live audio flow is no longer limited to manual text input"
+
+  - id: "F7"
+    name: "Operations + quality closure"
+    description: "Close the package with truthful operations, docs, CI, quality gates, and repeatable verification for release readiness."
+    status: "pending"
+    dependencies:
+      - "F6"
+    tasks:
+      - "Finalize user and developer documentation against the shipped product reality"
+      - "Finish CI and package verification automation for supported environments"
+      - "Harden quality gates and truth checks so status cannot drift from reality"
+      - "Verify bootstrap, doctor, test, and package scripts end to end"
+      - "Confirm closure evidence for the supported macOS-first package"
+    acceptance_criteria:
+      - "Documentation, CI, and verification scripts match the actual shipped product"
+      - "Quality gates and truth checks prevent stale or misleading status reporting"
+      - "`scripts/verify_package.sh` and related package checks pass for the accepted release path"
+      - "The package is truthfully labeled as ready only when verified locally"

@@ -1,0 +1,1 @@
+{"rustc":10088478398040096810,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[10831620673236678515,"build_script_build",false,18240433047868197837]],"local":[{"RerunIfChanged":{"output":"release/build/cssparser-3ace4c8bf4aee678/output","paths":["src/tokenizer.rs"]}}],"rustflags":["-C","link-arg=-Wl,-rpath,/usr/lib/swift"],"config":0,"compile_kind":0}

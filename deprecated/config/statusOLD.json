@@ -1,0 +1,135 @@
+{
+  "project": "Interview Coach",
+  "version": "0.9.0-rc",
+  "architecture_version": "3.2.1 (FROZEN)",
+  "last_updated": "2026-03-15T16:12:36Z",
+  "current_phase": "P0",
+  "runtime_state": {
+    "backend_functional": true,
+    "database_connected": "conditional — true when Docker PostgreSQL running",
+    "api_keys_configured": "conditional — true when ANTHROPIC_API_KEY or OPENAI_API_KEY set",
+    "audio_capture_functional": true,
+    "audio_bridge_functional": false,
+    "stt_functional": "partial — Nova-3 /v1/listen works in qualified runs but net0001 errors persist",
+    "live_pipeline_functional": false,
+    "interview_context_persistence_functional": true,
+    "session_persistence_functional": false,
+    "latency_acceptable": "unverified — no measurement evidence",
+    "quality_gates_passed": [
+      "GL0 pending — truth reconciliation in progress"
+    ]
+  },
+  "phase_status": {
+    "P0": {
+      "name": "Truth Reconciliation",
+      "status": "in_progress"
+    },
+    "P1": {
+      "name": "Desktop Audio Bridge Real",
+      "status": "pending"
+    },
+    "P2": {
+      "name": "STT Real End-to-End on Desktop Path",
+      "status": "pending"
+    },
+    "P3": {
+      "name": "Speaker + Turn Intelligence",
+      "status": "pending"
+    },
+    "P4": {
+      "name": "Live Response Usefulness",
+      "status": "pending"
+    },
+    "P5": {
+      "name": "End-to-End Latency",
+      "status": "pending"
+    },
+    "P6": {
+      "name": "Persistence and Replay",
+      "status": "pending"
+    },
+    "P7": {
+      "name": "Final Hardening and Truthful Closure",
+      "status": "pending"
+    }
+  },
+  "component_status": {
+    "tauri_ui": {
+      "status": "functional",
+      "notes": "Canonical shipped UI"
+    },
+    "nextjs_ui": {
+      "status": "functional",
+      "notes": "preview-only"
+    },
+    "python_backend": {
+      "status": "functional"
+    },
+    "pipeline_steps": {
+      "status": "partial",
+      "notes": "8/10 steps, AudioReceiver and STTAdapter partial"
+    },
+    "audio_capture": {
+      "status": "functional"
+    },
+    "audio_bridge": {
+      "status": "partial"
+    },
+    "stt_adapter": {
+      "status": "partial"
+    },
+    "pgvector": {
+      "status": "functional",
+      "notes": "when DB available"
+    },
+    "interview_context_persistence": {
+      "status": "functional"
+    },
+    "session_persistence": {
+      "status": "stub"
+    },
+    "quality_gate": {
+      "status": "functional"
+    },
+    "conversation_tracker": {
+      "status": "functional"
+    },
+    "documentation": {
+      "status": "partial"
+    }
+  },
+  "known_gaps": [
+    "Audio bridge incomplete",
+    "STT lifecycle issues (net0001 errors)",
+    "Session persistence not wired",
+    "Latency unverified"
+  ],
+  "scripts_available": {
+    "bootstrap": [
+      "scripts/bootstrap_macos.sh",
+      "scripts/bootstrap_linux.sh",
+      "scripts/bootstrap_windows.sh"
+    ],
+    "doctor": [
+      "scripts/doctor_macos.sh",
+      "scripts/doctor_linux.sh",
+      "scripts/doctor_windows.sh"
+    ],
+    "verification": [
+      "scripts/verify_package.sh",
+      "scripts/test_package.sh"
+    ],
+    "documentation": [
+      "docs/CLOSURE_GAP_MATRIX.md",
+      "docs/CLOSURE_QUALITY_GATES.md",
+      "docs/DEVELOPER_RUNBOOK.md",
+      "docs/USER_GUIDE.md",
+      "docs/SUPPORT_MATRIX.md"
+    ]
+  },
+  "how_to_verify": {
+    "quick": "bash scripts/test_package.sh quick",
+    "smoke": "bash scripts/test_package.sh smoke",
+    "full": "bash scripts/verify_package.sh"
+  }
+}

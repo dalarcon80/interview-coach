@@ -1,0 +1,8 @@
+{
+  "name": "interview-coach-backend",
+  "version": "1.0.0",
+  "description": "Python FastAPI Backend for Interview Coach - runs uvicorn",
+  "scripts": {
+    "dev": "cd ../.. && python -m uvicorn python-core.api.server:app --host 127.0.0.1 --port 8000 --reload"
+  }
+}

@@ -1,0 +1,6 @@
+# Deprecated Docs
+
+- OLD_CLOSURE_GAP_MATRIX.md - Superseded by CLOSURE_GAP_MATRIX.md
+- OLD_CLOSURE_QUALITY_GATES.md - Superseded by CLOSURE_QUALITY_GATES.md
+- OLD_SUPPORT_MATRIX.md - Superseded by SUPPORT_MATRIX.md
+

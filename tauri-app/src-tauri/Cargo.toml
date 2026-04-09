@@ -1,0 +1,37 @@
+[package]
+name = "interview-coach"
+version = "0.1.0"
+description = "Interview Coach - Real-time interview coaching with AI"
+authors = ["Interview Coach Team"]
+edition = "2021"
+
+[lib]
+name = "interview_coach_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = ["devtools"] }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+base64 = "0.22"
+
+# Audio capture dependencies
+cpal = "0.15"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# ScreenCaptureKit for macOS system audio
+screencapturekit = "1.5"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true

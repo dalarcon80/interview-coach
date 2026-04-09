@@ -1,0 +1,1 @@
+{"rustc":10088478398040096810,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[4194243100543041776,"build_script_build",false,338881578995357182]],"local":[{"RerunIfChanged":{"output":"debug/build/screencapturekit-3308e425ac13677b/output","paths":["swift-bridge"]}}],"rustflags":["-C","link-arg=-Wl,-rpath,/usr/lib/swift"],"config":0,"compile_kind":0}

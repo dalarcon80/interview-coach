@@ -1,0 +1,6 @@
+SESSION_ID=8fe4e350-2f7d-423b-b123-f042efda372a
+EVENT_TYPES=connected,session_started,audio_received,audio_received,transcript
+EVENT_2_SESSION_STARTED={"type": "session_started", "session_id": "8fe4e350-2f7d-423b-b123-f042efda372a", "config": {"company_name": "Runtime Validation Co", "role_title": "Senior Engineer", "mode": "real"}, "mode": "real"}
+EVENT_3_AUDIO_RECEIVED={"type": "audio_received", "timestamp": 1200, "bytes_received": 85336, "buffer_size": 0}
+EVENT_4_AUDIO_RECEIVED={"type": "audio_received", "timestamp": 2400, "bytes_received": 85336, "buffer_size": 0}
+EVENT_5_TRANSCRIPT_FINAL=True SPEAKER=unknown LANGUAGE=en TEXT=[STT Error: received 1011 (internal error) Deepgram did not receive audio data or a text message within the timeout window. See https://dpgr.am/net0001; then sent 1011 (internal error) Deepgram did not receive audio data

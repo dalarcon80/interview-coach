@@ -1,0 +1,25 @@
+INFO:     Started server process [2298]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[Interview Coach] Starting Python/FastAPI backend...
+[Interview Coach] Architecture: Tauri + Rust (audio) + Python/FastAPI (core) + React/TS (UI)
+[Interview Coach] Storage: PostgreSQL + pgvector
+[Interview Coach] Providers loaded from config/providers.yaml
+[Interview Coach] Database connection: OK
+[Interview Coach] Mode resolution effective=real source=env:INTERVIEW_COACH_MODE=real api_keys=True db_connected=True pgvector_ready=True
+INFO:     127.0.0.1:49582 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49583 - "WebSocket /ws/pipeline" [accepted]
+INFO:     connection open
+[WS] Pipeline client connected
+[WS] Session context: candidate=, company=Runtime Validation Co, role=Senior Engineer
+[WS] Audio: 85336 bytes base64, buffer size: 0
+[WS][STT] stream_open session_id=8fe4e350-2f7d-423b-b123-f042efda372a
+[WS] Audio: 85336 bytes base64, buffer size: 0
+INFO:     127.0.0.1:49589 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49593 - "GET /health HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2298]

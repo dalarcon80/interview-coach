@@ -1,0 +1,55 @@
+{
+  "": {
+    "dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenCaptureKitBridge.d",
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenCaptureKitBridge.o",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/master.swiftdeps"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/AudioDevices.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/AudioDevices.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ContentSharingPicker.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ContentSharingPicker.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Core.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Core.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/RecordingOutput.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/RecordingOutput.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ScreenshotManager.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ScreenshotManager.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/ShareableContent.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/ShareableContent.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/Stream.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/Stream.dia"
+  },
+  "/Users/dalarcon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/screencapturekit-1.5.4/swift-bridge/Sources/ScreenCaptureKitBridge/StreamConfiguration.swift": {
+    "object": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.swift.o",
+    "swiftmodule": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration~partial.swiftmodule",
+    "swift-dependencies": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.swiftdeps",
+    "diagnostics": "/Users/dalarcon/projects/dev/interview-coach/tauri-app/src-tauri/target/debug/build/screencapturekit-3e528628b8bc0247/out/swift-build/arm64-apple-macosx/release/ScreenCaptureKitBridge.build/StreamConfiguration.dia"
+  }
+}

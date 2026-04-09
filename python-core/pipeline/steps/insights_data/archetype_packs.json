@@ -1,0 +1,97 @@
+{
+  "version": "2026.03.31.v3.2.1",
+  "packs": [
+    {
+      "id": "director_head",
+      "label": "Director / Head",
+      "aliases": ["director", "head", "vp", "vice president"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "label": "Leadership Scope",
+          "weight_delta": 0.08
+        },
+        "influence_collaboration": {
+          "label": "Executive Influence",
+          "weight_delta": 0.05
+        },
+        "functional_technical_depth": {
+          "weight_delta": -0.04
+        }
+      },
+      "question_family_order": [
+        "managerial",
+        "consulting_advisory",
+        "universal",
+        "technical"
+      ]
+    },
+    {
+      "id": "people_manager",
+      "label": "People Manager",
+      "aliases": ["manager", "senior manager", "lead manager"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "label": "Team Scope",
+          "weight_delta": 0.05
+        },
+        "influence_collaboration": {
+          "label": "Stakeholder Influence",
+          "weight_delta": 0.04
+        }
+      },
+      "question_family_order": [
+        "managerial",
+        "universal",
+        "technical"
+      ]
+    },
+    {
+      "id": "consulting_advisory",
+      "label": "Consulting / Advisory",
+      "aliases": ["consulting", "advisor", "advisory", "client"],
+      "dimension_overrides": {
+        "influence_collaboration": {
+          "label": "Client / Executive Influence",
+          "weight_delta": 0.07
+        },
+        "evidence_quality": {
+          "weight_delta": 0.03
+        }
+      },
+      "question_family_order": [
+        "consulting_advisory",
+        "universal",
+        "managerial",
+        "technical"
+      ]
+    },
+    {
+      "id": "technical_leadership_principal",
+      "label": "Principal / Technical Leadership",
+      "aliases": ["principal", "staff", "principal engineer", "principal architect", "principal consultant"],
+      "dimension_overrides": {
+        "scope_complexity": {
+          "label": "System / Program Complexity",
+          "weight_delta": 0.03
+        },
+        "functional_technical_depth": {
+          "label": "Technical Depth",
+          "weight_delta": 0.09
+        },
+        "influence_collaboration": {
+          "label": "Technical Influence",
+          "weight_delta": 0.05
+        },
+        "role_positioning": {
+          "weight_delta": 0.02
+        }
+      },
+      "question_family_order": [
+        "technical",
+        "universal",
+        "consulting_advisory",
+        "managerial"
+      ]
+    }
+  ]
+}

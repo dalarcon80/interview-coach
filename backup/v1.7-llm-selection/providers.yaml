@@ -1,0 +1,61 @@
+# Interview Coach - Provider Configuration
+# All providers resolved by logical alias
+# Zero model IDs in code or SQL
+
+providers:
+  stt:
+    primary:
+      alias: "stt_primary"
+      provider: "deepgram"
+      model: "nova-3"
+      config:
+        language: "multi"
+        diarize: true
+        smart_format: true
+        utterance_end_ms: 1500
+    fallback:
+      alias: "stt_fallback"
+      provider: "whisper_local"
+      model: "medium"
+      config:
+        language: "auto"
+
+  llm:
+    main:
+      alias: "llm_main"
+      provider: "anthropic"
+      model: "claude-sonnet-4-20250514"
+      config:
+        temperature: 0.3
+        max_tokens: 300
+        stream: true
+    fast:
+      alias: "llm_fast"
+      provider: "anthropic"
+      model: "claude-haiku-4-5-20251001"
+      config:
+        temperature: 0.2
+        max_tokens: 150
+        stream: false
+    local:
+      alias: "llm_local"
+      provider: "ollama"
+      model: "llama3.2"
+      config:
+        temperature: 0.3
+        max_tokens: 300
+        stream: true
+        base_url: "http://localhost:11434"
+
+  embedding:
+    primary:
+      alias: "embedding_primary"
+      provider: "openai"
+      model: "text-embedding-3-small"
+      dimensions: 1536
+      config:
+        batch_size: 100
+
+# Environment variable overrides:
+# PROVIDER_LLM_MAIN_MODEL=claude-opus-4-20250514
+# PROVIDER_STT_PRIMARY_PROVIDER=whisper_local

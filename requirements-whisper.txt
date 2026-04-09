@@ -1,0 +1,5 @@
+# Dependencies for local STT (Whisper)
+# Install with: pip install -r requirements-whisper.txt
+# Note: faster-whisper automatically detects Apple Silicon (M1-M5) and uses Metal GPU
+
+faster-whisper>=0.10.0
