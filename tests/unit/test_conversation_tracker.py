@@ -138,7 +138,11 @@ def test_build_realtime_context_bundle_prefers_post_commit_follow_up_over_answer
     assert bundle["primary_question_source"] == "post_commit_interviewer_turns"
     assert bundle["carry_forward_reason"] == "new_interviewer_after_committed_answer"
     assert len(bundle["turns"]) == 1
+    assert len(bundle["active_turns"]) == 1
+    assert len(bundle["historical_turns"]) == 2
+    assert len(bundle["source_turns"]) == 3
     assert bundle["turns"][0]["speaker"] == "interviewer"
     assert bundle["turns"][0]["text"] == "Tell me about your team management experience."
     assert bundle["turns"][0]["start_time"] == 40.0
     assert bundle["turns"][0]["end_time"] == 40.8
+    assert bundle["active_ask_state"]["status"] == "open"

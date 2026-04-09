@@ -71,9 +71,34 @@ def resolve_realtime_context_bundle(turns: list[dict[str, Any]]) -> Dict[str, An
 
 
 def build_realtime_context_bundle(conversation_tracker: "ConversationTracker", limit: int = 5) -> Dict[str, Any]:
-    """Resolve the latest interviewer question block from the last N turns."""
+    """Resolve the latest interviewer question block from the tracker-aware live window."""
+    if conversation_tracker is None:
+        return resolve_realtime_context_bundle([])
+
+    builder = getattr(conversation_tracker, "build_normalized_realtime_context_bundle", None)
+    if callable(builder):
+        bundle = builder(limit=limit)
+        if bundle is not None:
+            if hasattr(bundle, "model_dump"):
+                return bundle.model_dump(mode="json")
+            if isinstance(bundle, dict):
+                return bundle
+
     turns = conversation_tracker.get_last_n_turns(limit=limit)
-    return resolve_realtime_context_bundle(turns)
+    resolved = resolve_realtime_context_bundle(turns)
+    resolved.update(
+        {
+            "active_turns": resolved.get("turns", []),
+            "historical_turns": [],
+            "source_turns": turns,
+            "source_turn_count": len(turns),
+            "active_turn_count": len(resolved.get("turns", [])),
+            "historical_turn_count": 0,
+            "carry_forward_reason": "",
+            "source_signature": "",
+        }
+    )
+    return resolved
 
 
 class SilenceDetector:

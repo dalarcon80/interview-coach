@@ -15,6 +15,7 @@ import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
+from hashlib import sha1
 from typing import Optional, Any
 
 from contracts.models import (
@@ -298,6 +299,176 @@ class ConversationTracker:
     def get_normalized_realtime_context(self) -> Optional[NormalizedRealtimeContextBundle]:
         with self._sync_lock:
             return self.state.latest_normalized_realtime_context
+
+    @staticmethod
+    def _turn_event_time(turn: dict[str, Any]) -> Optional[float]:
+        for key in ("end_time", "start_time"):
+            value = turn.get(key)
+            if isinstance(value, (int, float)):
+                return float(value)
+
+        timestamp = turn.get("timestamp")
+        if isinstance(timestamp, (int, float)):
+            return float(timestamp)
+        if isinstance(timestamp, str):
+            try:
+                return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp()
+            except Exception:
+                return None
+        return None
+
+    @staticmethod
+    def _turn_signature(turns: list[dict[str, Any]]) -> str:
+        serialized: list[str] = []
+        for turn in turns:
+            speaker = str(turn.get("speaker", "")).strip().lower()
+            text = " ".join(str(turn.get("text", "")).split()).strip().lower()
+            if not speaker and not text:
+                continue
+            serialized.append(f"{speaker}::{text}")
+        if not serialized:
+            return ""
+        return sha1("\n".join(serialized).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _build_closed_active_ask_state(
+        *,
+        active_ask_state: Optional[ActiveAskState],
+        primary_question: str,
+        primary_question_source: str,
+        carry_forward_reason: str,
+        last_answer_committed_at: Optional[float],
+        last_answer_committed_question_key: str,
+        last_answer_committed_interviewer_generation: Optional[int],
+        interviewer_generation: int,
+        source_turn_start_index: Optional[int],
+        source_turn_end_index: Optional[int],
+        status: str,
+    ) -> ActiveAskState:
+        base_state = active_ask_state or ActiveAskState()
+        normalized_question = " ".join(str(primary_question or "").split()).strip()
+        normalized_question_key = normalized_question.lower()
+        updated = base_state.model_copy(
+            update={
+                "ask_key": normalized_question_key or base_state.ask_key,
+                "question_text": normalized_question or base_state.question_text,
+                "status": status,
+                "source": primary_question_source or base_state.source,
+                "carry_forward_reason": carry_forward_reason,
+                "interviewer_generation": interviewer_generation,
+                "source_turn_start_index": source_turn_start_index,
+                "source_turn_end_index": source_turn_end_index,
+                "last_answer_committed_at": last_answer_committed_at,
+                "last_answer_committed_question_key": last_answer_committed_question_key,
+                "last_answer_committed_interviewer_generation": last_answer_committed_interviewer_generation,
+                "updated_at": datetime.utcnow().timestamp(),
+            }
+        )
+        return updated
+
+    def build_normalized_realtime_context_bundle(
+        self,
+        *,
+        turns: Optional[list[dict[str, Any]]] = None,
+        limit: int = 5,
+    ) -> NormalizedRealtimeContextBundle:
+        source_turns = list(turns if turns is not None else self.get_last_n_turns(limit=limit))
+        source_turn_count = len(source_turns)
+        commit_at = self.state.last_answer_committed_at
+
+        commit_boundary_index = 0
+        if commit_at is not None:
+            commit_boundary_index = source_turn_count
+            for idx, turn in enumerate(source_turns):
+                turn_time = self._turn_event_time(turn)
+                if turn_time is not None and turn_time > float(commit_at):
+                    commit_boundary_index = idx
+                    break
+
+        post_commit_turns = source_turns[commit_boundary_index:]
+        active_block_start: Optional[int] = None
+        active_block_end = len(post_commit_turns)
+        interviewer_block_seen = False
+        for idx in range(len(post_commit_turns) - 1, -1, -1):
+            text = str(post_commit_turns[idx].get("text", "")).strip()
+            if not text:
+                continue
+            speaker = post_commit_turns[idx].get("speaker")
+            if speaker == "interviewer":
+                interviewer_block_seen = True
+                active_block_start = idx
+                continue
+            if interviewer_block_seen:
+                break
+            active_block_end = idx
+
+        active_turns: list[dict[str, Any]] = []
+        active_turn_start_index: Optional[int] = None
+        active_turn_end_index: Optional[int] = None
+        if interviewer_block_seen and active_block_start is not None:
+            active_turn_start_index = commit_boundary_index + active_block_start
+            active_turn_end_index = commit_boundary_index + active_block_end
+            active_turns = list(source_turns[active_turn_start_index:active_turn_end_index])
+
+        if active_turn_start_index is not None and active_turn_end_index is not None:
+            historical_turns = list(source_turns[:active_turn_start_index]) + list(source_turns[active_turn_end_index:])
+        else:
+            historical_turns = list(source_turns)
+
+        from pipeline.silence_detector import resolve_realtime_context_bundle
+
+        active_context = resolve_realtime_context_bundle(active_turns)
+        primary_question = str(active_context.get("primary_question", "") or "")
+        primary_question_index = active_context.get("primary_question_index")
+        interviewer_question_index = active_context.get("interviewer_question_index")
+        primary_question_source = str(active_context.get("primary_question_source", "none") or "none")
+        carry_forward_reason = ""
+
+        if commit_at is not None:
+            if active_turns and primary_question:
+                primary_question_source = "post_commit_interviewer_turns"
+                carry_forward_reason = "new_interviewer_after_committed_answer"
+            else:
+                primary_question_source = "none"
+                primary_question = ""
+                primary_question_index = None
+                interviewer_question_index = None
+                carry_forward_reason = "awaiting_new_interviewer_after_committed_answer"
+
+        active_ask_state = self._build_closed_active_ask_state(
+            active_ask_state=self.state.latest_active_ask_state,
+            primary_question=primary_question,
+            primary_question_source=primary_question_source,
+            carry_forward_reason=carry_forward_reason,
+            last_answer_committed_at=commit_at,
+            last_answer_committed_question_key=self.state.last_answer_committed_question_key,
+            last_answer_committed_interviewer_generation=self.state.last_answer_committed_interviewer_generation,
+            interviewer_generation=int(self.state.last_answer_committed_interviewer_generation or 0),
+            source_turn_start_index=active_turn_start_index,
+            source_turn_end_index=(active_turn_end_index - 1) if active_turn_end_index is not None and active_turns else None,
+            status="open" if active_turns else ("closed" if commit_at is not None else "open"),
+        )
+
+        source_signature = self._turn_signature(source_turns)
+        normalized_context = NormalizedRealtimeContextBundle(
+            turns=active_turns,
+            active_turns=active_turns,
+            historical_turns=historical_turns,
+            source_turns=source_turns,
+            context_turns=len(active_turns),
+            source_turn_count=source_turn_count,
+            active_turn_count=len(active_turns),
+            historical_turn_count=len(historical_turns),
+            primary_question=primary_question,
+            primary_question_index=primary_question_index,
+            interviewer_question_index=interviewer_question_index,
+            primary_question_source=primary_question_source,
+            carry_forward_reason=carry_forward_reason,
+            source_signature=source_signature,
+            active_ask_state=active_ask_state,
+        )
+        self.cache_normalized_realtime_context(normalized_context)
+        return normalized_context
 
     def record_answer_committed(
         self,

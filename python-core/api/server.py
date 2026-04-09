@@ -906,6 +906,36 @@ def _build_compat_live_prepared_context_from_brain_plan(
     )
 
 
+async def _send_final_suggestion_with_commit(
+    *,
+    websocket: WebSocket,
+    payload: dict[str, Any],
+    tracker: Any = None,
+    question_text: str = "",
+    interviewer_generation: Optional[int] = None,
+    session_id: str = "",
+) -> None:
+    await websocket.send_json(payload)
+    if tracker is None:
+        return
+
+    committed_question = _normalize_live_question_text(question_text or payload.get("question", ""))
+    if not committed_question:
+        return
+
+    try:
+        tracker.record_answer_committed(
+            committed_at=time.time(),
+            question_key=committed_question,
+            interviewer_generation=int(interviewer_generation or 0),
+        )
+    except Exception as exc:
+        print(
+            "[WS][COMMIT] record_answer_committed_failed "
+            f"session_id={session_id} error={exc}"
+        )
+
+
 def _are_brain_plans_seed_compatible(
     seed_plan: Optional[BrainPlan],
     target_plan: Optional[BrainPlan],
@@ -4891,12 +4921,28 @@ class SessionSTTStreamManager:
 
     def _get_raw_live_turn_window(self, limit: int = 5) -> list[dict[str, Any]]:
         source_limit = max(limit * 3, 10)
+        tracker = getattr(self._pipeline, "conversation_tracker", None)
+        if tracker is not None:
+            tracker_context_bundle = build_realtime_context_bundle(tracker, limit=source_limit)
+            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
+            last_answer_committed_at = None
+            if isinstance(active_ask_state, dict):
+                last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
+            else:
+                last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
+            if last_answer_committed_at is not None:
+                return _normalize_live_turn_window(
+                    tracker_context_bundle.get("turns")
+                    or tracker_context_bundle.get("active_turns")
+                    or [],
+                    limit=limit,
+                )
+
         ui_equivalent_window = _normalize_live_turn_window(
             self._get_ui_equivalent_transcript_window(limit=source_limit),
             limit=limit,
         )
 
-        tracker = getattr(self._pipeline, "conversation_tracker", None)
         tracker_window: list[dict[str, Any]] = []
         if tracker is not None:
             raw_turns = tracker.get_last_n_turns(limit=source_limit)
@@ -5528,6 +5574,22 @@ class SessionSTTStreamManager:
         # The brain should think over the same consolidated conversation history
         # that Capture preserves and Emit will later send downstream.
         raw_turn_window = self._get_raw_live_turn_window(limit=limit)
+        tracker = getattr(self._pipeline, "conversation_tracker", None)
+        if tracker is not None:
+            tracker_context_bundle = build_realtime_context_bundle(tracker, limit=max(limit * 3, 10))
+            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
+            last_answer_committed_at = None
+            if isinstance(active_ask_state, dict):
+                last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
+            else:
+                last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
+            if last_answer_committed_at is not None:
+                raw_turn_window = _normalize_live_turn_window(
+                    tracker_context_bundle.get("turns")
+                    or tracker_context_bundle.get("active_turns")
+                    or [],
+                    limit=limit,
+                )
         if not raw_turn_window:
             return None
         turn_window = _normalize_live_turn_window(raw_turn_window, limit=limit)
@@ -6481,10 +6543,31 @@ class SessionSTTStreamManager:
         interview_config: dict[str, Any],
     ) -> Optional[LiveFrozenSnapshot]:
         raw_turn_window = self._get_raw_live_turn_window(limit=5)
+        tracker = getattr(self._pipeline, "conversation_tracker", None)
+        tracker_context_bundle: dict[str, Any] = {}
+        if tracker is not None:
+            tracker_context_bundle = build_realtime_context_bundle(tracker, limit=5) or {}
+            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
+            last_answer_committed_at = None
+            if isinstance(active_ask_state, dict):
+                last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
+            else:
+                last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
+            if last_answer_committed_at is not None:
+                raw_turn_window = _normalize_live_turn_window(
+                    tracker_context_bundle.get("turns")
+                    or tracker_context_bundle.get("active_turns")
+                    or [],
+                    limit=5,
+                )
         if not raw_turn_window:
             return None
         turn_window = _normalize_live_turn_window(raw_turn_window, limit=5)
-        raw_context_bundle = resolve_realtime_context_bundle(turn_window)
+        raw_context_bundle = (
+            tracker_context_bundle
+            if tracker_context_bundle
+            else resolve_realtime_context_bundle(turn_window)
+        )
         brain_snapshot = self._build_live_brain_snapshot_v3(limit=5)
         if brain_snapshot is None:
             return None
@@ -7914,7 +7997,7 @@ class SessionSTTStreamManager:
             if fallback_used is None:
                 fallback_used = path_used.startswith("writer_")
             
-            await self._websocket.send_json({
+            suggestion_payload = {
                 "type": "suggestion",
                 "stage": "full",
                 "mode": response.get("mode", self._default_mode),
@@ -8324,7 +8407,15 @@ class SessionSTTStreamManager:
                     "emit_finalize_calls_after_silence": warm_debug.get("emit_finalize_calls_after_silence"),
                     "answer_gate_reason": warm_debug.get("answer_gate_reason"),
                 },
-            })
+            }
+            await _send_final_suggestion_with_commit(
+                websocket=self._websocket,
+                payload=suggestion_payload,
+                tracker=getattr(self._pipeline, "conversation_tracker", None),
+                question_text=snapshot.question_text,
+                interviewer_generation=self._latest_interviewer_generation,
+                session_id=self._session_id,
+            )
             self._mark_auto_suggestion_served(snapshot=snapshot)
             self._finalize_current_live_interviewer_block(reason="suggestion_emitted")
             
@@ -11631,7 +11722,7 @@ async def _process_audio_for_stt(
             
             actual_mode = _resolve_result_mode(result, suggested_response, "demo")
             
-            await websocket.send_json({
+            suggestion_payload = {
                 "type": "suggestion",
                 "stage": "full",
                 "mode": actual_mode,
@@ -11650,7 +11741,15 @@ async def _process_audio_for_stt(
                 "processing_full_response": False,
                 "bullets_latency_ms": suggested_metadata.get("time_to_bullets_ms", result.total_latency_ms),
                 "full_latency_ms": suggested_metadata.get("time_to_full_ms", result.total_latency_ms),
-            })
+            }
+            await _send_final_suggestion_with_commit(
+                websocket=websocket,
+                payload=suggestion_payload,
+                tracker=getattr(pipeline, "conversation_tracker", None),
+                question_text=transcript_text,
+                interviewer_generation=0,
+                session_id=session_id,
+            )
             
     except Exception as e:
         print(f"[WS] STT processing error: {e}")
@@ -12045,7 +12144,7 @@ async def websocket_pipeline(websocket: WebSocket):
                         print("[WS] Demo mode used")
                     
                     # Send suggestion with explicit mode
-                    await websocket.send_json({
+                    suggestion_payload = {
                         "type": "suggestion",
                         "stage": "full",
                         "mode": actual_mode,
@@ -12068,7 +12167,15 @@ async def websocket_pipeline(websocket: WebSocket):
                         "model": model_used,
                         "transcript_id": transcript_id,
                         "request_id": request_id,
-                    })
+                    }
+                    await _send_final_suggestion_with_commit(
+                        websocket=websocket,
+                        payload=suggestion_payload,
+                        tracker=getattr(pipeline, "conversation_tracker", None),
+                        question_text=text,
+                        interviewer_generation=0,
+                        session_id=session_id or "",
+                    )
 
                     handoff_latency_ms = int((perf_counter() - handoff_start) * 1000)
                     print(
@@ -12223,7 +12330,7 @@ async def websocket_pipeline(websocket: WebSocket):
                     # Determine actual mode from result
                     actual_mode = _resolve_result_mode(result, suggested_response, mode)
                     
-                    await websocket.send_json({
+                    suggestion_payload = {
                         "type": "suggestion",
                         "stage": "full",
                         "mode": actual_mode,
@@ -12253,7 +12360,15 @@ async def websocket_pipeline(websocket: WebSocket):
                         "normalizer_confidence": suggested_metadata.get("normalizer_confidence"),
                         "normalizer_latency_ms": suggested_metadata.get("normalizer_latency_ms"),
                         "fallback_used": suggested_metadata.get("fallback_used"),
-                    })
+                    }
+                    await _send_final_suggestion_with_commit(
+                        websocket=websocket,
+                        payload=suggestion_payload,
+                        tracker=getattr(pipeline, "conversation_tracker", None),
+                        question_text=question,
+                        interviewer_generation=0,
+                        session_id=session_id or "",
+                    )
                     
                 except Exception as e:
                     import traceback
@@ -12345,7 +12460,7 @@ async def websocket_pipeline(websocket: WebSocket):
                     # Determine actual mode from result
                     actual_mode = _resolve_result_mode(result, suggested_response, mode)
                     
-                    await websocket.send_json({
+                    suggestion_payload = {
                         "type": "suggestion",
                         "stage": "full",
                         "mode": actual_mode,
@@ -12383,7 +12498,15 @@ async def websocket_pipeline(websocket: WebSocket):
                         "normalizer_confidence": suggested_metadata.get("normalizer_confidence"),
                         "normalizer_latency_ms": suggested_metadata.get("normalizer_latency_ms"),
                         "fallback_used": suggested_metadata.get("fallback_used"),
-                    })
+                    }
+                    await _send_final_suggestion_with_commit(
+                        websocket=websocket,
+                        payload=suggestion_payload,
+                        tracker=getattr(pipeline, "conversation_tracker", None),
+                        question_text=question_text,
+                        interviewer_generation=0,
+                        session_id=session_id or "",
+                    )
                     
                 except Exception as e:
                     import traceback

@@ -240,7 +240,7 @@ async def test_live_brain_service_reuses_previous_semantic_plan_for_same_complet
     assert plan.plan_source == "cached_stable"
     assert plan.ordered_asks == previous_plan.ordered_asks
     assert plan.question_completeness == "complete"
-    assert plan.draft_answer == previous_plan.draft_answer
+    assert plan.draft_answer == ""
     assert "reused the previous semantic contract" in plan.reasoning_summary.lower()
 
 
@@ -334,6 +334,70 @@ async def test_live_brain_service_ignores_previous_plan_after_revision_boundary(
     assert plan.plan_source == "llm_fast"
     assert plan.ordered_asks == ["Tell me about your team management experience."]
     assert "led distributed teams" in plan.draft_answer.lower()
+
+
+@pytest.mark.asyncio
+async def test_live_brain_service_clears_draft_answer_when_carry_forward_crosses_utterance_boundary():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-turn-boundary",
+        utterance_id="session:2",
+        revision_id=4,
+        snapshot_text="What are you looking for in terms of the company?",
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": "What are you looking for in terms of the company?",
+            }
+        ],
+        snapshot_hash="hash-turn-2",
+        timestamp=datetime.utcnow(),
+    )
+    previous_plan = BrainPlan(
+        session_id="s-turn-boundary",
+        utterance_id="session:1",
+        revision_id=4,
+        snapshot_hash="hash-turn-1",
+        literal_question="What are you looking for in terms of the company?",
+        contextualized_question="Answer by focusing on the preference areas most relevant to company, culture, and teams.",
+        ordered_asks=["What are you looking for in terms of the company?"],
+        raw_detected_asks=["What are you looking for in terms of the company?"],
+        resolved_question="What are you looking for in terms of the company?",
+        question_completeness="complete",
+        question_type="behavioral",
+        response_shape="direct_structured",
+        answer_contract="preferences_and_anti_patterns",
+        directness="balanced",
+        tone="professional",
+        response_family="culture_preferences",
+        draft_answer=(
+            "I'm looking for a company with a collaborative culture, clear expectations, and teams with strong ownership."
+        ),
+        confidence=0.91,
+        stability_state="stable",
+        plan_source="llm_fast",
+        serve_mode="finalize_from_draft",
+    )
+    current_plan = previous_plan.model_copy(
+        update={
+            "utterance_id": snapshot.utterance_id,
+            "snapshot_hash": snapshot.snapshot_hash,
+            "generated_at": snapshot.timestamp,
+            "plan_source": "safe_fallback",
+            "draft_answer": "",
+        }
+    )
+
+    carried_plan = service._carry_forward_previous_semantic_plan(
+        snapshot=snapshot,
+        current_plan=current_plan,
+        previous_plan=previous_plan,
+    )
+
+    assert carried_plan is not None
+    assert carried_plan.utterance_id == snapshot.utterance_id
+    assert carried_plan.draft_answer == ""
+    assert carried_plan.serve_mode == "finalize_from_draft"
 
 
 @pytest.mark.asyncio

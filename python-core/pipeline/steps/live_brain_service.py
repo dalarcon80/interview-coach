@@ -701,30 +701,31 @@ class LiveBrainService:
             }
         )
 
-        return previous_plan.model_copy(
-            update={
-                "utterance_id": snapshot.utterance_id,
-                "revision_id": snapshot.revision_id,
-                "snapshot_hash": snapshot.snapshot_hash,
-                "generated_at": snapshot.timestamp,
-                "context_focus": merged_context_focus,
-                "alignment_brief": merged_alignment_brief,
-                "supporting_interviewer_context": merged_supporting_context,
-                "raw_detected_asks": merged_raw_detected_asks,
-                "dropped_noise_clauses": merged_dropped_noise,
-                "clause_classifications": list(current_plan.clause_classifications or previous_plan.clause_classifications or [])[:8],
-                "contextualized_question": contextualized_question,
-                "question_scope": merged_question_scope,
-                "plan_source": "cached_stable",
-                "stability_state": "stable",
-                "serve_mode": (
-                    "finalize_from_draft"
-                    if str(previous_plan.draft_answer or "").strip()
-                    else "finalize_from_plan"
-                ),
-                "confidence": max(float(previous_plan.confidence or 0.0), float(current_plan.confidence or 0.0)),
-            }
-        )
+        update_dict = {
+            "utterance_id": snapshot.utterance_id,
+            "revision_id": snapshot.revision_id,
+            "snapshot_hash": snapshot.snapshot_hash,
+            "generated_at": snapshot.timestamp,
+            "context_focus": merged_context_focus,
+            "alignment_brief": merged_alignment_brief,
+            "supporting_interviewer_context": merged_supporting_context,
+            "raw_detected_asks": merged_raw_detected_asks,
+            "dropped_noise_clauses": merged_dropped_noise,
+            "clause_classifications": list(current_plan.clause_classifications or previous_plan.clause_classifications or [])[:8],
+            "contextualized_question": contextualized_question,
+            "question_scope": merged_question_scope,
+            "plan_source": "cached_stable",
+            "stability_state": "stable",
+            "serve_mode": (
+                "finalize_from_draft"
+                if str(previous_plan.draft_answer or "").strip()
+                else "finalize_from_plan"
+            ),
+            "confidence": max(float(previous_plan.confidence or 0.0), float(current_plan.confidence or 0.0)),
+        }
+        if self._normalize_text(previous_plan.utterance_id) != self._normalize_text(snapshot.utterance_id):
+            update_dict["draft_answer"] = ""
+        return previous_plan.model_copy(update=update_dict)
 
     def _build_semantic_carry_forward_reason(
         self,

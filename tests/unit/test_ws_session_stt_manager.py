@@ -13,6 +13,7 @@ from api.server import (
     LiveWarmCheckpoint,
     LiveWarmResult,
     SessionSTTStreamManager,
+    _send_final_suggestion_with_commit,
     _build_live_question_from_prepared_context,
 )
 from pipeline.steps.ask_normalizer import AskNormalizer
@@ -175,6 +176,31 @@ def _build_live_pipeline_stub() -> MagicMock:
         }
     )
     return pipeline
+
+
+@pytest.mark.asyncio
+async def test_send_final_suggestion_records_commit_after_websocket_send():
+    websocket = _FakeWebSocket()
+    tracker = ConversationTracker()
+
+    await _send_final_suggestion_with_commit(
+        websocket=websocket,
+        payload={
+            "type": "suggestion",
+            "question": "Tell me about your leadership experience.",
+            "full_response": "You can speak about your leadership experience.",
+        },
+        tracker=tracker,
+        question_text="Tell me about your leadership experience.",
+        interviewer_generation=3,
+        session_id="session-commit-helper",
+    )
+
+    assert websocket.events
+    assert websocket.events[0]["type"] == "suggestion"
+    commit_state = tracker.get_answer_commit_state()
+    assert commit_state["last_answer_committed_question_key"] == "tell me about your leadership experience."
+    assert commit_state["last_answer_committed_interviewer_generation"] == 3
 
 
 @pytest.mark.asyncio
@@ -2229,7 +2255,7 @@ async def test_auto_silence_does_not_retrigger_same_silence_window_after_answer(
 
 
 @pytest.mark.asyncio
-async def test_auto_silence_does_not_block_emit_when_recent_display_caption_is_still_active():
+async def test_auto_silence_blocks_emit_when_recent_display_caption_is_active():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
 
@@ -2309,15 +2335,15 @@ async def test_auto_silence_does_not_block_emit_when_recent_display_caption_is_s
         generation_token=None,
     )
 
-    manager._build_live_frozen_snapshot.assert_awaited()
-    manager._generate_live_response_from_snapshot.assert_awaited_once()
-    assert manager._answer_gate_reason == "triggering_suggestion"
-    assert manager._hard_silence_authorized is True
-    assert [event for event in websocket.events if event.get("type") == "suggestion"]
+    manager._build_live_frozen_snapshot.assert_not_awaited()
+    manager._generate_live_response_from_snapshot.assert_not_awaited()
+    assert manager._answer_gate_reason == "recent_display_caption_activity"
+    assert manager._hard_silence_authorized is False
+    assert not [event for event in websocket.events if event.get("type") == "suggestion"]
 
 
 @pytest.mark.asyncio
-async def test_auto_silence_still_emits_when_interviewer_resumes_during_emit():
+async def test_auto_silence_aborts_when_interviewer_resumes_during_emit():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
 
@@ -2344,7 +2370,7 @@ async def test_auto_silence_still_emits_when_interviewer_resumes_during_emit():
     )
 
     async def _mock_generate(**kwargs):
-        assert "activity_epoch_at_trigger" not in kwargs
+        assert kwargs.get("activity_epoch_at_trigger") == 0
         manager._interviewer_activity_epoch += 1
         return _shared_suggest_response("stale answer"), "writer_emergency_fallback", 0, 0, False
 
@@ -2366,9 +2392,9 @@ async def test_auto_silence_still_emits_when_interviewer_resumes_during_emit():
     assert manager._generate_live_response_from_snapshot.await_count >= 1
     suggestion_events = [event for event in websocket.events if event.get("type") == "suggestion"]
     stream_events = [event for event in websocket.events if event.get("type") == "suggestion_stream"]
-    assert suggestion_events
+    assert not suggestion_events
     assert not stream_events
-    assert manager._answer_gate_reason == "triggering_suggestion"
+    assert manager._answer_gate_reason == "interviewer_resumed_during_emit"
     assert manager._hard_silence_authorized is True
 
 
