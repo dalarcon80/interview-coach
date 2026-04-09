@@ -5557,6 +5557,7 @@ class SessionSTTStreamManager:
             self._latest_brain_snapshot_v3 is not None
             and self._latest_brain_plan_v3 is not None
             and self._latest_brain_snapshot_v3.snapshot_hash == brain_snapshot.snapshot_hash
+            and self._latest_brain_snapshot_v3.revision_id == brain_snapshot.revision_id
         )
         if can_use_cached_plan:
             cached_plan = self._normalize_live_brain_plan_for_active_route(self._latest_brain_plan_v3)
@@ -5579,6 +5580,8 @@ class SessionSTTStreamManager:
 
         brain_started = self._mark_live_brain_started(signature=brain_snapshot.snapshot_hash)
         previous_plan = self._latest_brain_plan_v3
+        if previous_plan is not None and previous_plan.revision_id != brain_snapshot.revision_id:
+            previous_plan = None
         try:
             if immediate_safe_fallback:
                 plan = self._live_brain_service_v3.safe_plan(
@@ -5598,6 +5601,8 @@ class SessionSTTStreamManager:
                 self._live_brain_last_llm_failure_kind = self._live_brain_service_v3.last_llm_failure_kind or ""
             recovery_draft = str(plan.draft_answer or "")
             reusable_stable_plan = self._latest_stable_brain_plan_v3
+            if reusable_stable_plan is not None and reusable_stable_plan.revision_id != brain_snapshot.revision_id:
+                reusable_stable_plan = None
             if (
                 reusable_stable_plan is not None
                 and str(plan.plan_source or "").strip().lower() == "safe_fallback"

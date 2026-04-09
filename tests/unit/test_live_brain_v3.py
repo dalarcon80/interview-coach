@@ -192,7 +192,7 @@ async def test_live_brain_service_reuses_previous_semantic_plan_for_same_complet
     previous_plan = BrainPlan(
         session_id="s-reuse-complete",
         utterance_id="u-reuse-prev",
-        revision_id=1,
+        revision_id=2,
         snapshot_hash="hash-prev",
         literal_question=(
             "What are you looking for in terms of the company, the culture, teams? "
@@ -242,6 +242,98 @@ async def test_live_brain_service_reuses_previous_semantic_plan_for_same_complet
     assert plan.question_completeness == "complete"
     assert plan.draft_answer == previous_plan.draft_answer
     assert "reused the previous semantic contract" in plan.reasoning_summary.lower()
+
+
+@pytest.mark.asyncio
+async def test_live_brain_service_ignores_previous_plan_after_revision_boundary():
+    service = LiveBrainService()
+    snapshot = BrainSnapshot(
+        session_id="s-reset-window",
+        utterance_id="u-reset-window",
+        revision_id=2,
+        snapshot_text="Tell me about your team management experience.",
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": "Tell me about your team management experience.",
+            }
+        ],
+        snapshot_hash="hash-reset-window",
+        timestamp=datetime.utcnow(),
+    )
+    previous_plan = BrainPlan(
+        session_id="s-reset-window",
+        utterance_id="u-reset-prev",
+        revision_id=1,
+        snapshot_hash="hash-reset-prev",
+        literal_question="What are you looking for in terms of the company, the culture, teams?",
+        contextualized_question=(
+            "Answer by focusing on the preference areas most relevant to company, culture, and teams. "
+            "Keep the answer on stated preferences and boundaries rather than background recap."
+        ),
+        ordered_asks=[
+            "What are you looking for in terms of the company, the culture, teams?",
+        ],
+        raw_detected_asks=[
+            "What are you looking for in terms of the company, the culture, teams?",
+        ],
+        resolved_question="What are you looking for in terms of the company, the culture, teams?",
+        question_completeness="complete",
+        question_type="behavioral",
+        response_shape="direct_structured",
+        answer_contract="preferences_and_anti_patterns",
+        directness="balanced",
+        tone="professional",
+        response_family="culture_preferences",
+        draft_answer=(
+            "I'm looking for a company with a collaborative culture, clear expectations, and teams with strong ownership."
+        ),
+        confidence=0.91,
+        stability_state="stable",
+        plan_source="llm_fast",
+    )
+    observed_previous_plans: list[BrainPlan | None] = []
+
+    async def fake_plan_with_llm(*, snapshot, interview_config, previous_plan=None):
+        observed_previous_plans.append(previous_plan)
+        return (
+            BrainPlan(
+                session_id=snapshot.session_id,
+                utterance_id=snapshot.utterance_id,
+                revision_id=snapshot.revision_id,
+                snapshot_hash=snapshot.snapshot_hash,
+                literal_question=snapshot.snapshot_text,
+                contextualized_question="Answer by focusing on team management experience and leadership scope.",
+                ordered_asks=["Tell me about your team management experience."],
+                raw_detected_asks=["Tell me about your team management experience."],
+                resolved_question="Tell me about your team management experience.",
+                question_completeness="complete",
+                question_type="behavioral",
+                response_shape="direct_short",
+                answer_contract="general_direct",
+                directness="direct",
+                tone="professional",
+                response_family="mixed_multi_part",
+                draft_answer="I have led distributed teams across regions and disciplines.",
+                confidence=0.73,
+                stability_state="draft",
+                plan_source="safe_fallback",
+            ),
+            "",
+        )
+
+    service._plan_with_llm = fake_plan_with_llm  # type: ignore[assignment]
+
+    plan = await service.plan(
+        snapshot=snapshot,
+        interview_config={"candidate": {}, "company": {}, "interviewer": {}},
+        previous_plan=previous_plan,
+    )
+
+    assert observed_previous_plans == [None]
+    assert plan.plan_source == "llm_fast"
+    assert plan.ordered_asks == ["Tell me about your team management experience."]
+    assert "led distributed teams" in plan.draft_answer.lower()
 
 
 @pytest.mark.asyncio
@@ -5000,7 +5092,7 @@ async def test_manager_v3_reuses_cached_stable_plan_when_latest_plan_is_partial(
     stable_plan = BrainPlan(
         session_id="session-v3-cached-stable",
         utterance_id="u-10",
-        revision_id=2,
+        revision_id=3,
         snapshot_hash="hash-old",
         ordered_asks=["What are you looking for in terms of the company, the culture, teams?"],
         raw_detected_asks=["What are you looking for in terms of the company, the culture, teams?"],
@@ -5083,6 +5175,101 @@ async def test_manager_v3_reuses_cached_stable_plan_when_latest_plan_is_partial(
 
 
 @pytest.mark.asyncio
+async def test_manager_v3_does_not_reuse_cached_stable_plan_across_revision_boundary():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-v3-cached-stable-boundary",
+        default_mode="real",
+    )
+
+    stable_plan = BrainPlan(
+        session_id="session-v3-cached-stable-boundary",
+        utterance_id="u-15",
+        revision_id=2,
+        snapshot_hash="hash-old-boundary",
+        ordered_asks=["What are you looking for in terms of the company, the culture, teams?"],
+        raw_detected_asks=["What are you looking for in terms of the company, the culture, teams?"],
+        resolved_question="What are you looking for in terms of the company, the culture, teams?",
+        question_completeness="complete",
+        response_shape="direct_short",
+        directness="direct",
+        include_profile_opening=False,
+        evidence_depth="light",
+        metrics_policy="avoid_unless_helpful",
+        company_context_policy="support_if_relevant",
+        candidate_context_policy="support_if_relevant",
+        ordered_coverage_required=False,
+        target_length=110,
+        draft_answer="I’m looking for a team with strong execution, collaboration, and low bureaucracy.",
+        serve_mode="direct_brain",
+        confidence=0.9,
+        stability_state="stable",
+        plan_source="llm_fast",
+    )
+    manager._latest_stable_brain_plan_v3 = stable_plan
+    manager._latest_stable_brain_recovery_draft_v3 = stable_plan.draft_answer
+    manager._live_brain_service_v3.plan = AsyncMock(
+        return_value=BrainPlan(
+            session_id="session-v3-cached-stable-boundary",
+            utterance_id="u-16",
+            revision_id=3,
+            snapshot_hash="hash-new-boundary",
+            ordered_asks=[],
+            raw_detected_asks=[
+                "What are you looking for in terms of the company, the culture, teams?",
+                "What's important for you, or what kind of things you absolutely",
+            ],
+            resolved_question="What's important for you, or what kind of things you absolutely",
+            question_completeness="partial",
+            response_shape="direct_short",
+            directness="direct",
+            include_profile_opening=False,
+            evidence_depth="light",
+            metrics_policy="avoid_unless_helpful",
+            company_context_policy="avoid",
+            candidate_context_policy="avoid",
+            ordered_coverage_required=False,
+            target_length=100,
+            draft_answer="",
+            serve_mode="finalize_from_plan",
+            confidence=0.2,
+            stability_state="draft",
+            plan_source="safe_fallback",
+        )
+    )
+
+    brain_snapshot = BrainSnapshot(
+        session_id="session-v3-cached-stable-boundary",
+        utterance_id="u-16",
+        revision_id=3,
+        snapshot_text=(
+            "What are you looking for in terms of the company, the culture, teams?\n"
+            "What's important for you, or what kind of things you absolutely"
+        ),
+        conversation_history=[
+            {"speaker": "interviewer", "text": "What are you looking for in terms of the company, the culture, teams?"},
+            {"speaker": "interviewer", "text": "What's important for you, or what kind of things you absolutely"},
+        ],
+        snapshot_hash="hash-new-boundary",
+        timestamp=datetime.utcnow(),
+    )
+
+    plan, evidence_pack = await manager._compute_live_brain_plan_v3(
+        brain_snapshot=brain_snapshot,
+        interview_config=pipeline.session_state.interview_config,
+        force_stable=True,
+    )
+
+    assert plan.plan_source == "safe_fallback"
+    assert plan.ordered_asks == []
+    assert evidence_pack.mode == "minimal"
+    assert manager._latest_brain_recovery_draft_v3 == ""
+
+
+@pytest.mark.asyncio
 async def test_manager_v3_reuses_cached_stable_plan_when_latest_fallback_is_complete_but_compatible():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
@@ -5096,7 +5283,7 @@ async def test_manager_v3_reuses_cached_stable_plan_when_latest_fallback_is_comp
     stable_plan = BrainPlan(
         session_id="session-v3-cached-stable-complete",
         utterance_id="u-20",
-        revision_id=4,
+        revision_id=5,
         snapshot_hash="hash-stable",
         ordered_asks=[
             "What are you looking for in terms of the company, the culture, teams?",

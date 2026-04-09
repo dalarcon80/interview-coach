@@ -395,10 +395,15 @@ class LiveBrainService:
     ) -> BrainPlan:
         started = perf_counter()
         self.last_llm_failure_kind = ""
+        previous_plan_for_snapshot = (
+            previous_plan
+            if self._previous_plan_matches_snapshot_revision(snapshot=snapshot, previous_plan=previous_plan)
+            else None
+        )
         llm_plan, llm_failure_kind = await self._plan_with_llm(
             snapshot=snapshot,
             interview_config=interview_config,
-            previous_plan=previous_plan,
+            previous_plan=previous_plan_for_snapshot,
         )
         if llm_plan is not None:
             normalized_llm_plan = llm_plan.model_copy(
@@ -412,7 +417,7 @@ class LiveBrainService:
             carried_plan = self._carry_forward_previous_semantic_plan(
                 snapshot=snapshot,
                 current_plan=normalized_llm_plan,
-                previous_plan=previous_plan,
+                previous_plan=previous_plan_for_snapshot,
             )
             if carried_plan is not None:
                 return carried_plan
@@ -422,7 +427,7 @@ class LiveBrainService:
         carried_plan = self._carry_forward_previous_semantic_plan(
             snapshot=snapshot,
             current_plan=plan,
-            previous_plan=previous_plan,
+            previous_plan=previous_plan_for_snapshot,
         )
         if carried_plan is not None:
             carried_reason = self._build_semantic_carry_forward_reason(
@@ -569,6 +574,16 @@ class LiveBrainService:
             return 1
         return 0
 
+    @staticmethod
+    def _previous_plan_matches_snapshot_revision(
+        *,
+        snapshot: BrainSnapshot,
+        previous_plan: Optional[BrainPlan],
+    ) -> bool:
+        if previous_plan is None:
+            return False
+        return int(previous_plan.revision_id or 0) == int(snapshot.revision_id or 0)
+
     def _carry_forward_previous_semantic_plan(
         self,
         *,
@@ -577,6 +592,8 @@ class LiveBrainService:
         previous_plan: Optional[BrainPlan],
     ) -> Optional[BrainPlan]:
         if current_plan is None or previous_plan is None:
+            return None
+        if not self._previous_plan_matches_snapshot_revision(snapshot=snapshot, previous_plan=previous_plan):
             return None
 
         previous_source = str(previous_plan.plan_source or "").strip().lower()
