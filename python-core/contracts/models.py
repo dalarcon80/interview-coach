@@ -326,6 +326,19 @@ class ResponseRequirement(BaseModel):
     prior_context_mode: str = "support_if_relevant"
 
 
+class QuestionScope(BaseModel):
+    """Normalized scope for a single interviewer question."""
+    question_text: str = ""
+    resolved_question: str = ""
+    referent_window: list[str] = Field(default_factory=list)
+    question_kind: str = "general"
+    answer_contract: str = "general_direct"
+    required_evidence_mode: str = "support_if_relevant"
+    disallowed_evidence_modes: list[str] = Field(default_factory=list)
+    scope_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    scope_source: str = "safe_fallback"
+
+
 class BrainPlan(BaseModel):
     """Brain-owned response policy and structured draft for live answering."""
     session_id: str = ""
@@ -342,6 +355,7 @@ class BrainPlan(BaseModel):
     ask_intents: list[AskIntent] = Field(default_factory=list)
     interviewer_need: InterviewerNeed = Field(default_factory=InterviewerNeed)
     response_requirement: ResponseRequirement = Field(default_factory=ResponseRequirement)
+    question_scope: QuestionScope = Field(default_factory=QuestionScope)
     context_focus: list[str] = Field(default_factory=list)
     response_family: str = "mixed_multi_part"
     answer_blueprint: list[dict[str, Any]] = Field(default_factory=list)
