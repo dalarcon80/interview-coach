@@ -62,6 +62,7 @@ from pipeline.steps.live_evidence_packer import LiveEvidencePacker, LiveEvidence
 from pipeline.steps.live_finalizer import LiveFinalizer, LiveFinalizerConfig
 from pipeline.steps.insights_service import InsightsService
 from storage.insights_store import InsightsStore
+from runtime_config_store import get_runtime_config_path, load_runtime_config_payload, save_runtime_config_payload
 
 # Import database check function
 from storage.database import check_db_connection, close_db
@@ -119,9 +120,8 @@ class RuntimeConfig(BaseModel):
     latency: LatencyConfig = LatencyConfig()
 
 
-# In-memory runtime config storage (loaded from file on startup)
+# In-memory runtime config storage (loaded from a local config path on startup)
 _RUNTIME_CONFIG: RuntimeConfig | None = None
-_RUNTIME_CONFIG_PATH = Path(__file__).parent.parent / "runtime_config.json"
 
 # Global registry of active pipelines by session_id
 # Used to access in-memory conversation history during active sessions
@@ -134,12 +134,11 @@ def load_runtime_config() -> RuntimeConfig | None:
     """Load runtime config from file if exists"""
     global _RUNTIME_CONFIG
     try:
-        if _RUNTIME_CONFIG_PATH.exists():
-            with open(_RUNTIME_CONFIG_PATH, 'r') as f:
-                data = json.load(f)
-                _RUNTIME_CONFIG = RuntimeConfig(**data)
-                print(f"[RuntimeConfig] Loaded from {_RUNTIME_CONFIG_PATH}")
-                return _RUNTIME_CONFIG
+        data = load_runtime_config_payload()
+        if data is not None:
+            _RUNTIME_CONFIG = RuntimeConfig(**data)
+            print(f"[RuntimeConfig] Loaded from {get_runtime_config_path()}")
+            return _RUNTIME_CONFIG
     except Exception as e:
         print(f"[RuntimeConfig] Could not load config: {e}")
     return None
@@ -149,10 +148,9 @@ def save_runtime_config(config: RuntimeConfig) -> RuntimeConfig:
     """Save runtime config to file"""
     global _RUNTIME_CONFIG
     try:
-        with open(_RUNTIME_CONFIG_PATH, 'w') as f:
-            json.dump(config.model_dump(), f, indent=2)
+        save_runtime_config_payload(config.model_dump())
         _RUNTIME_CONFIG = config
-        print(f"[RuntimeConfig] Saved to {_RUNTIME_CONFIG_PATH}")
+        print(f"[RuntimeConfig] Saved to {get_runtime_config_path()}")
     except Exception as e:
         print(f"[RuntimeConfig] Could not save config: {e}")
     return config

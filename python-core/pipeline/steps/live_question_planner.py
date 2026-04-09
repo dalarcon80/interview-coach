@@ -702,25 +702,15 @@ class LiveQuestionPlanner:
             runtime_enabled = bool(runtime_llm.get("enabled"))
             runtime_model = (runtime_llm.get("model") or "").strip()
 
-            def _live_fast_model(provider_name: str, configured_model: str) -> str:
-                provider_name = (provider_name or "").strip().lower()
-                configured_model = (configured_model or "").strip()
-                if provider_name == "anthropic":
-                    return configured_model if "haiku" in configured_model.lower() else "claude-haiku-4-5-20251001"
-                if provider_name == "openai":
-                    lowered = configured_model.lower()
-                    return configured_model if lowered in {"gpt-4o-mini", "gpt-4.1-mini"} else "gpt-4o-mini"
-                return configured_model
-
             def _runtime_adapter() -> Any:
                 if not runtime_enabled or not runtime_api_key:
                     return None
                 if runtime_provider == "anthropic":
-                    adapter = AnthropicLLMAdapter(model=_live_fast_model(runtime_provider, runtime_model))
+                    adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
                     adapter.api_key = runtime_api_key
                     return adapter
                 if runtime_provider == "openai":
-                    adapter = OpenAILLMAdapter(model=_live_fast_model(runtime_provider, runtime_model))
+                    adapter = OpenAILLMAdapter(model=runtime_model or model or "gpt-4o")
                     adapter.api_key = runtime_api_key
                     return adapter
                 return None
@@ -730,7 +720,7 @@ class LiveQuestionPlanner:
                     runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
                 )
                 if api_key:
-                    adapter = AnthropicLLMAdapter(model=_live_fast_model(provider, model))
+                    adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
                     adapter.api_key = api_key
                     return adapter
             if provider == "openai":
@@ -738,7 +728,7 @@ class LiveQuestionPlanner:
                     runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
                 )
                 if api_key:
-                    adapter = OpenAILLMAdapter(model=_live_fast_model(provider, model))
+                    adapter = OpenAILLMAdapter(model=runtime_model or model or "gpt-4o")
                     adapter.api_key = api_key
                     return adapter
             if provider == "ollama":

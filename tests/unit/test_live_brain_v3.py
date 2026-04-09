@@ -2155,18 +2155,52 @@ def test_live_finalizer_resolve_adapter_uses_runtime_main_model(monkeypatch: pyt
     assert adapter.api_key == "test-key"
 
 
-def test_live_brain_service_resolve_adapter_uses_env_anthropic_runtime_config(monkeypatch: pytest.MonkeyPatch):
+def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
 
-    adapter = LiveBrainService()._resolve_adapter(alias="fast")
+    with patch(
+        "pipeline.steps.live_brain_service._get_runtime_config",
+        return_value={
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "api_key": "test-anthropic-key",
+                "enabled": True,
+            }
+        },
+    ):
+        adapter = LiveBrainService()._resolve_adapter(alias="fast")
 
     assert isinstance(adapter, AnthropicLLMAdapter)
-    assert adapter.model == "claude-haiku-4-5-20251001"
+    assert adapter.model == "claude-sonnet-4-6"
     assert adapter.api_key == "test-anthropic-key"
 
 
-def test_live_finalizer_resolve_adapter_uses_env_anthropic_runtime_config(monkeypatch: pytest.MonkeyPatch):
+def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+
+    planner = LiveQuestionPlanner()
+    with patch(
+        "pipeline.steps.live_question_planner._get_runtime_config",
+        return_value={
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "api_key": "test-anthropic-key",
+                "enabled": True,
+            }
+        },
+    ):
+        adapter = planner._get_planner_adapter()
+
+    assert isinstance(adapter, AnthropicLLMAdapter)
+    assert adapter.model == "claude-sonnet-4-6"
+    assert adapter.api_key == "test-anthropic-key"
+
+
+def test_live_finalizer_resolve_adapter_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
 

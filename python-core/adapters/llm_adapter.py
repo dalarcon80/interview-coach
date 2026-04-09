@@ -6,6 +6,7 @@ Falls back to demo mode when API keys are not configured
 import os
 from typing import AsyncGenerator, Optional
 from adapters.interfaces import LLMAdapter
+from runtime_config_store import load_runtime_config_payload
 
 
 class DemoLLMAdapter(LLMAdapter):
@@ -296,16 +297,7 @@ def _resolve_llm_provider_config(alias: str = "main") -> tuple[Optional[str], Op
 
 def _get_runtime_config() -> Optional[dict]:
     """Get runtime config from server if available."""
-    try:
-        from pathlib import Path
-        import json
-        config_path = Path(__file__).parent.parent / "runtime_config.json"
-        if config_path.exists():
-            with open(config_path, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"[LLMAdapter] Could not load runtime config: {e}")
-    return None
+    return load_runtime_config_payload()
 
 
 def get_llm_adapter(alias: str = "main") -> Optional[LLMAdapter]:

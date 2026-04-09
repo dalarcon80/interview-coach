@@ -7924,15 +7924,15 @@ JSON schema:
                 runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
             )
             if anthropic_key:
-                adapter = AnthropicLLMAdapter(model="claude-haiku-4-5-20251001")
+                adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-20250514")
                 adapter.api_key = anthropic_key
                 return adapter
             if openai_key:
-                adapter = OpenAILLMAdapter(model="gpt-4o-mini")
+                adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
                 adapter.api_key = openai_key
                 return adapter
             if runtime_enabled and runtime_provider == "ollama":
-                return OllamaLLMAdapter(model="llama3.2:1b", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
+                return OllamaLLMAdapter(model=runtime_model or "llama3.2:1b", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
         else:
             anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
                 runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""

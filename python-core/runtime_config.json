@@ -9,7 +9,7 @@
   "stt": {
     "provider": "deepgram",
     "model": "nova-3",
-    "api_key": "a5763df7cab9fd1db0c1b29315fe0d4520f6afd9",
+    "api_key": "",
     "enabled": true
   },
   "latency": {
