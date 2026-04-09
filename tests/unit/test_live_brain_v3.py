@@ -1223,6 +1223,17 @@ def test_live_evidence_packer_compacts_context():
     assert len(pack.company_snippets) <= 2
 
 
+def test_compact_evidence_pack_includes_operating_style_and_client_posture_buckets():
+    pack = CompactEvidencePack(
+        plan_hash="plan-hash",
+        operating_style_evidence=["Built a governed operating model with quality gates."],
+        client_posture_evidence=["Opened executive relationships and aligned on roadmaps."],
+    )
+
+    assert pack.operating_style_evidence == ["Built a governed operating model with quality gates."]
+    assert pack.client_posture_evidence == ["Opened executive relationships and aligned on roadmaps."]
+
+
 def test_live_evidence_packer_skips_irrelevant_profile_snippets_when_only_support_if_relevant():
     packer = LiveEvidencePacker()
     plan = BrainPlan(

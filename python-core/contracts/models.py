@@ -396,6 +396,8 @@ class CompactEvidencePack(BaseModel):
     build_evidence: list[str] = Field(default_factory=list)
     leadership_evidence: list[str] = Field(default_factory=list)
     team_scope_evidence: list[str] = Field(default_factory=list)
+    operating_style_evidence: list[str] = Field(default_factory=list)
+    client_posture_evidence: list[str] = Field(default_factory=list)
     culture_alignment_evidence: list[str] = Field(default_factory=list)
     technical_alignment_evidence: list[str] = Field(default_factory=list)
     supporting_metrics: list[str] = Field(default_factory=list)
