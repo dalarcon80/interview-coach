@@ -28,8 +28,8 @@ def test_map_speaker_uses_diarization_when_available():
         "type": "Results",
         "results": {
             "utterances": [
-                {"speaker": 3, "transcript": "Can you describe a challenge?"},
-                {"speaker": 4, "transcript": "Sure, I can."},
+                {"speaker": 0, "transcript": "Can you describe a challenge?"},
+                {"speaker": 1, "transcript": "Sure, I can."},
             ]
         },
     }

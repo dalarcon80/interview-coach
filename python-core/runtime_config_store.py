@@ -12,6 +12,14 @@ _DEFAULT_CONFIG_FILENAME = "runtime_config.json"
 _LEGACY_CONFIG_PATH = Path(__file__).with_name(_DEFAULT_CONFIG_FILENAME)
 
 
+def _has_runtime_credentials(data: dict[str, Any]) -> bool:
+    llm = data.get("llm") if isinstance(data.get("llm"), dict) else {}
+    stt = data.get("stt") if isinstance(data.get("stt"), dict) else {}
+    llm_api_key = str(llm.get("api_key", "")).strip()
+    stt_api_key = str(stt.get("api_key", "")).strip()
+    return bool(llm_api_key or stt_api_key)
+
+
 def get_runtime_config_path() -> Path:
     override = os.environ.get(_RUNTIME_CONFIG_ENV, "").strip()
     if override:
@@ -37,6 +45,12 @@ def load_runtime_config_payload() -> dict[str, Any] | None:
             if not isinstance(data, dict):
                 continue
             if candidate_path == _LEGACY_CONFIG_PATH and candidate_path != path:
+                if not _has_runtime_credentials(data):
+                    print(
+                        "[RuntimeConfig] Skipping legacy migration because the legacy payload "
+                        "does not contain runtime credentials."
+                    )
+                    continue
                 path.parent.mkdir(parents=True, exist_ok=True)
                 with path.open("w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)

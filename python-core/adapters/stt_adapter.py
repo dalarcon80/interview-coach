@@ -13,6 +13,7 @@ import websockets
 
 from adapters.interfaces import STTAdapter, TranscriptionEvent
 from adapters.provider_registry import get_registry, ProviderConfig
+from runtime_config_store import load_runtime_config_payload
 
 
 class MockSTTAdapter(STTAdapter):
@@ -1050,14 +1051,9 @@ class STTAdapterFactory:
     
     @staticmethod
     def _get_runtime_config() -> Optional[dict]:
-        """Get runtime config from server if available."""
+        """Get runtime config from the shared local settings store."""
         try:
-            from pathlib import Path
-            import json
-            config_path = Path(__file__).parent.parent / "runtime_config.json"
-            if config_path.exists():
-                with open(config_path, 'r') as f:
-                    return json.load(f)
+            return load_runtime_config_payload()
         except Exception as e:
             print(f"[STTAdapter] Could not load runtime config: {e}")
         return None
