@@ -2157,7 +2157,7 @@ def test_live_finalizer_resolve_adapter_uses_runtime_main_model(monkeypatch: pyt
 
 def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-anthropic-key")
 
     with patch(
         "pipeline.steps.live_brain_service._get_runtime_config",
@@ -2165,7 +2165,7 @@ def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypa
             "llm": {
                 "provider": "anthropic",
                 "model": "claude-sonnet-4-6",
-                "api_key": "test-anthropic-key",
+                "api_key": "runtime-anthropic-key",
                 "enabled": True,
             }
         },
@@ -2174,12 +2174,12 @@ def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypa
 
     assert isinstance(adapter, AnthropicLLMAdapter)
     assert adapter.model == "claude-sonnet-4-6"
-    assert adapter.api_key == "test-anthropic-key"
+    assert adapter.api_key == "runtime-anthropic-key"
 
 
 def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-anthropic-key")
 
     planner = LiveQuestionPlanner()
     with patch(
@@ -2188,7 +2188,7 @@ def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.M
             "llm": {
                 "provider": "anthropic",
                 "model": "claude-sonnet-4-6",
-                "api_key": "test-anthropic-key",
+                "api_key": "runtime-anthropic-key",
                 "enabled": True,
             }
         },
@@ -2197,18 +2197,69 @@ def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.M
 
     assert isinstance(adapter, AnthropicLLMAdapter)
     assert adapter.model == "claude-sonnet-4-6"
-    assert adapter.api_key == "test-anthropic-key"
+    assert adapter.api_key == "runtime-anthropic-key"
 
 
 def test_live_finalizer_resolve_adapter_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-anthropic-key")
 
-    adapter = LiveFinalizer()._resolve_adapter(alias="main")
+    with patch(
+        "pipeline.steps.live_finalizer._get_runtime_config",
+        return_value={
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "api_key": "runtime-anthropic-key",
+                "enabled": True,
+            }
+        },
+    ):
+        adapter = LiveFinalizer()._resolve_adapter(alias="main")
 
     assert isinstance(adapter, AnthropicLLMAdapter)
     assert adapter.model == "claude-sonnet-4-6"
-    assert adapter.api_key == "test-anthropic-key"
+    assert adapter.api_key == "runtime-anthropic-key"
+
+
+def test_live_llm_failure_notice_mentions_the_configured_api_key(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "api.server.load_runtime_config_payload",
+        lambda: {
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "api_key": "runtime-anthropic-key",
+                "enabled": True,
+            }
+        },
+    )
+
+    notice = SessionSTTStreamManager._build_live_llm_failure_notice("authenticationerror")
+
+    assert "Anthropic" in notice
+    assert "configured API key" in notice
+    assert "Open Settings" in notice
+
+
+def test_live_llm_failure_notice_mentions_missing_api_key_in_settings(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "api.server.load_runtime_config_payload",
+        lambda: {
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "api_key": "",
+                "enabled": True,
+            }
+        },
+    )
+
+    notice = SessionSTTStreamManager._build_live_llm_failure_notice("api_key_missing")
+
+    assert "Anthropic" in notice
+    assert "missing in Settings" in notice
+    assert "Open Settings" in notice
 
 
 @pytest.mark.asyncio
@@ -4353,11 +4404,11 @@ async def test_manager_v3_does_not_emit_partial_stream_events_before_final_sugge
     )
 
     stream_events = [event for event in websocket.events if event.get("type") == "suggestion_stream"]
+    suggestion_events = [event for event in websocket.events if event.get("type") == "suggestion"]
     assert path_used == "brain_finalize_from_plan"
-    assert [event.get("stage") for event in stream_events] == ["start", "stream", "stream", "terminal"]
-    assert [event.get("emit_state") for event in stream_events] == ["preview_pending", "preview_ready", "preview_ready", "final_ready"]
-    assert stream_events[-1].get("processing_full_response") is False
-    assert stream_events[-1].get("emit_id") == response.get("emit_id")
+    assert [event.get("stage") for event in stream_events] == ["start", "stream", "stream"]
+    assert stream_events[-1].get("processing_full_response") is True
+    assert suggestion_events == []
     assert response["debug"]["emit_stream_chunk_count"] == 2
     assert response["debug"]["emit_first_chunk_ms"] is not None
 

@@ -315,12 +315,13 @@ def get_llm_adapter(alias: str = "main") -> Optional[LLMAdapter]:
     runtime_config = _get_runtime_config()
     if runtime_config and runtime_config.get("llm"):
         llm_config = runtime_config["llm"]
-        provider = llm_config.get("provider", "anthropic")
-        model = llm_config.get("model", "claude-sonnet-4-20250514")
+        provider = str(llm_config.get("provider", "anthropic")).strip().lower()
+        model = str(llm_config.get("model", "claude-sonnet-4-20250514")).strip()
         
         # Check if LLM is enabled
         if not llm_config.get("enabled", False):
             print("[LLMAdapter] LLM is disabled in runtime config")
+            runtime_config = None
         
         # Handle Ollama (no API key required)
         elif provider == "ollama":
@@ -330,49 +331,21 @@ def get_llm_adapter(alias: str = "main") -> Optional[LLMAdapter]:
             return adapter
         
         # Handle Anthropic and OpenAI (require API key)
-        elif provider in ("anthropic", "openai") and llm_config.get("api_key"):
-            api_key = llm_config["api_key"]
-
-            # Check if runtime config key looks like a placeholder/test key
-            # More comprehensive check for various placeholder patterns
-            is_placeholder_key = (
-                api_key.startswith("sk-test-") or
-                api_key.startswith("sk-test-key") or
-                api_key == "test-deepgram-key" or
-                len(api_key) < 20 or  # Real keys are longer
-                "test" in api_key.lower() or
-                "placeholder" in api_key.lower()
-            )
-
+        elif provider in ("anthropic", "openai"):
+            api_key = str(llm_config.get("api_key") or "").strip()
             print(f"[LLMAdapter] Runtime config found: provider={provider}, model={model}")
-            print(f"[LLMAdapter] Runtime key check: length={len(api_key)}, is_placeholder={is_placeholder_key}")
-
-            # Use env var if available and runtime config key is placeholder
-            if provider == "anthropic":
-                env_key = os.getenv("ANTHROPIC_API_KEY")
-                final_key = env_key if is_placeholder_key else api_key
-                print(f"[LLMAdapter] Env key present: {bool(env_key)}, Using env fallback: {is_placeholder_key}")
-                if final_key:
-                    adapter = AnthropicLLMAdapter(model=model)
-                    adapter.api_key = final_key
-                    source = "env" if is_placeholder_key else "runtime_config"
-                    print(f"[LLMAdapter] Runtime config: provider=anthropic model={model} (key from {source})")
+            if api_key:
+                if provider == "anthropic":
+                    adapter = AnthropicLLMAdapter(model=model or "claude-sonnet-4-20250514")
+                    adapter.api_key = api_key
+                    print(f"[LLMAdapter] Runtime config: provider=anthropic model={model} (key from runtime_config)")
                     return adapter
-                else:
-                    print("[LLMAdapter] Warning: No valid Anthropic API key, falling through to env check...")
-                    # Fall through to env var handling below
-            elif provider == "openai":
-                env_key = os.getenv("OPENAI_API_KEY")
-                final_key = env_key if is_placeholder_key else api_key
-                print(f"[LLMAdapter] Env key present: {bool(env_key)}, Using env fallback: {is_placeholder_key}")
-                if final_key:
-                    adapter = OpenAILLMAdapter(model=model)
-                    adapter.api_key = final_key
-                    source = "env" if is_placeholder_key else "runtime_config"
-                    print(f"[LLMAdapter] Runtime config: provider=openai model={model} (key from {source})")
-                    return adapter
-                else:
-                    print("[LLMAdapter] Warning: No valid OpenAI API key, falling through to env check...")
+                adapter = OpenAILLMAdapter(model=model or "gpt-4o")
+                adapter.api_key = api_key
+                print(f"[LLMAdapter] Runtime config: provider=openai model={model} (key from runtime_config)")
+                return adapter
+            print(f"[LLMAdapter] Runtime config requires provider={provider} but the API key is missing")
+            return None
     
     # Fall back to environment variables
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")

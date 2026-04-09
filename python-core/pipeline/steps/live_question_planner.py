@@ -703,7 +703,15 @@ class LiveQuestionPlanner:
             runtime_model = (runtime_llm.get("model") or "").strip()
 
             def _runtime_adapter() -> Any:
-                if not runtime_enabled or not runtime_api_key:
+                if not runtime_enabled:
+                    return None
+                if runtime_provider == "ollama":
+                    base_url = runtime_llm.get("base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
+                    return OllamaLLMAdapter(
+                        model=runtime_model or model or "llama3.2",
+                        base_url=base_url,
+                    )
+                if not runtime_api_key:
                     return None
                 if runtime_provider == "anthropic":
                     adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
@@ -715,41 +723,38 @@ class LiveQuestionPlanner:
                     return adapter
                 return None
 
-            if provider == "anthropic":
-                api_key = os.getenv("ANTHROPIC_API_KEY") or (
-                    runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+            runtime_adapter = _runtime_adapter()
+            if runtime_adapter is not None:
+                print(
+                    "[LiveQuestionPlanner] using runtime llm for planner "
+                    f"runtime_provider={runtime_provider} runtime_model='{(runtime_model or '')[:80]}' "
+                    f"configured_provider={provider} configured_model='{model[:80]}'"
                 )
+                return runtime_adapter
+
+            if provider == "ollama":
+                base_url = runtime_llm.get("base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
+                return OllamaLLMAdapter(model=model or "llama3.2", base_url=base_url)
+
+            if runtime_enabled and runtime_provider in {"anthropic", "openai"}:
+                print(
+                    "[LiveQuestionPlanner] runtime llm is enabled but api_key is missing "
+                    f"runtime_provider={runtime_provider} configured_provider={provider}"
+                )
+                return None
+
+            if provider == "anthropic":
+                api_key = os.getenv("ANTHROPIC_API_KEY")
                 if api_key:
                     adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
                     adapter.api_key = api_key
                     return adapter
             if provider == "openai":
-                api_key = os.getenv("OPENAI_API_KEY") or (
-                    runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
-                )
+                api_key = os.getenv("OPENAI_API_KEY")
                 if api_key:
                     adapter = OpenAILLMAdapter(model=runtime_model or model or "gpt-4o")
                     adapter.api_key = api_key
                     return adapter
-            if provider == "ollama":
-                runtime_adapter = _runtime_adapter()
-                if runtime_adapter is not None:
-                    print(
-                        "[LiveQuestionPlanner] using runtime llm for planner "
-                        f"runtime_provider={runtime_provider} runtime_model='{(runtime_model or '')[:80]}' "
-                        f"configured_provider={provider} configured_model='{model[:80]}'"
-                    )
-                    return runtime_adapter
-                base_url = runtime_llm.get("base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
-                return OllamaLLMAdapter(model=model or "llama3.2", base_url=base_url)
-            runtime_adapter = _runtime_adapter()
-            if runtime_adapter is not None:
-                print(
-                    "[LiveQuestionPlanner] using runtime llm fallback for planner "
-                    f"runtime_provider={runtime_provider} runtime_model='{(runtime_model or '')[:80]}' "
-                    f"configured_provider={provider} configured_model='{model[:80]}'"
-                )
-                return runtime_adapter
         except Exception as exc:
             print(f"[LiveQuestionPlanner] fast adapter resolution fallback: {exc}")
 

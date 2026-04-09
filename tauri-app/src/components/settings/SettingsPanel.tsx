@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import api from "@/lib/api-client";
 import {
   loadRuntimeConfig,
+  mergeRuntimeConfig,
   saveRuntimeConfig,
   type RuntimeConfig,
   type LatencyConfig,
@@ -115,8 +116,9 @@ export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
           try {
             const backendConfig = await api.getRuntimeConfig();
             if (backendConfig) {
-              setConfig(backendConfig);
-              saveRuntimeConfig(backendConfig);
+              const mergedConfig = mergeRuntimeConfig(backendConfig, localConfig);
+              setConfig(mergedConfig);
+              saveRuntimeConfig(mergedConfig);
             }
           } catch (e) {
             console.log("Could not fetch runtime config from backend:", e);
@@ -166,20 +168,25 @@ export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
     setSuccess(false);
 
     try {
-      // Save to backend FIRST - only proceed if this succeeds
+      // Persist locally first so the runtime config survives even if the backend
+      // is temporarily unavailable.
+      saveRuntimeConfig(config);
+
+      // Best-effort sync to the backend.
       if (backendUrl) {
         api.setBaseUrl(backendUrl);
         await api.updateRuntimeConfig(config);
       }
 
-      // Only save to localStorage after backend confirms success
-      saveRuntimeConfig(config);
-
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
       console.error("Error saving runtime config:", e);
-      setError(e instanceof Error ? e.message : "Failed to save configuration to backend");
+      setError(
+        e instanceof Error
+          ? `Saved locally, but could not sync to the backend: ${e.message}`
+          : "Saved locally, but could not sync configuration to the backend"
+      );
     } finally {
       setSaving(false);
     }

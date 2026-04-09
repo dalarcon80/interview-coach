@@ -253,6 +253,26 @@ class LiveFinalizer:
         )
 
     def _build_explicit_failure_notice(self, *, plan: BrainPlan, failure_kind: str = "") -> str:
+        normalized_failure_kind = str(failure_kind or "").strip().lower()
+        if normalized_failure_kind == "api_key_missing":
+            configured_provider = str((_get_runtime_config() or {}).get("llm", {}).get("provider") or "").strip().lower()
+            provider_label = "Anthropic" if configured_provider == "anthropic" else "the configured LLM"
+            return (
+                f"I could not generate a reliable answer because the {provider_label} API key is missing in Settings. "
+                "Open Settings, add the key, and save it again."
+            )
+        if normalized_failure_kind in {"authenticationerror", "api_connectionerror", "apiconnectionerror"}:
+            configured_provider = str((_get_runtime_config() or {}).get("llm", {}).get("provider") or "").strip().lower()
+            provider_label = "Anthropic" if configured_provider == "anthropic" else "the configured LLM"
+            if normalized_failure_kind == "authenticationerror":
+                return (
+                    f"I could not generate a reliable answer because {provider_label} rejected the configured API key. "
+                    "Open Settings, re-enter the key, and save it again."
+                )
+            return (
+                f"I could not generate a reliable answer because {provider_label} could not be reached from this machine. "
+                "Check network access and try again."
+            )
         if failure_kind == "timeout":
             return "I could not generate a reliable answer because the final answer stage timed out."
         if failure_kind == "llm_unavailable":
@@ -302,7 +322,8 @@ class LiveFinalizer:
             "configured_model": (_get_runtime_config() or {}).get("llm", {}).get("model"),
         }
         if adapter is None:
-            self.last_llm_failure_kind = "llm_unavailable"
+            if not self.last_llm_failure_kind:
+                self.last_llm_failure_kind = "llm_unavailable"
             return "", stream_metadata
 
         prompt = self._build_prompt(
@@ -1966,23 +1987,46 @@ Instructions:
         runtime_api_key = runtime_llm.get("api_key") or ""
         runtime_model = str(runtime_llm.get("model") or "").strip()
 
-        if alias == "main":
-            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+        if runtime_enabled:
+            if runtime_provider == "anthropic":
+                if runtime_api_key:
+                    adapter = AnthropicLLMAdapter(
+                        model=runtime_model or ("claude-sonnet-4-5-20250929" if alias == "main" else "claude-sonnet-4-6")
+                    )
+                    adapter.api_key = runtime_api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+            if runtime_provider == "openai":
+                if runtime_api_key:
+                    adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
+                    adapter.api_key = runtime_api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+            if runtime_provider == "ollama":
+                return OllamaLLMAdapter(
+                    model=runtime_model or "qwen3.5:latest",
+                    base_url=runtime_llm.get("base_url") or "http://localhost:11434",
+                )
+
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if anthropic_key:
+            adapter = AnthropicLLMAdapter(
+                model=runtime_model or ("claude-sonnet-4-5-20250929" if alias == "main" else "claude-sonnet-4-6")
             )
-            openai_key = os.getenv("OPENAI_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
+            adapter.api_key = anthropic_key
+            return adapter
+        if openai_key:
+            adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
+            adapter.api_key = openai_key
+            return adapter
+        if runtime_enabled and runtime_provider == "ollama":
+            return OllamaLLMAdapter(
+                model=runtime_model or "qwen3.5:latest",
+                base_url=runtime_llm.get("base_url") or "http://localhost:11434",
             )
-            if anthropic_key:
-                adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-5-20250929")
-                adapter.api_key = anthropic_key
-                return adapter
-            if openai_key:
-                adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
-                adapter.api_key = openai_key
-                return adapter
-            if runtime_enabled and runtime_provider == "ollama":
-                return OllamaLLMAdapter(model=runtime_model or "qwen3.5:latest", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
         return None
 
     def _metadata(self) -> dict[str, Any]:

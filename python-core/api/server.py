@@ -2106,28 +2106,25 @@ async def list_providers():
 
 def check_api_keys_available():
     """Check if API keys or LLM provider is configured for real LLM/embedding calls."""
-    # Check environment variables for cloud providers
-    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
-    
-    # Check runtime config for any configured provider (including Ollama)
-    has_runtime_provider = False
+    # Runtime config is the source of truth when it is enabled.
     try:
         runtime_config = get_runtime_config()
         if runtime_config and runtime_config.llm:
             llm_config = runtime_config.llm
-            # Check if LLM is enabled and has a valid provider
             if llm_config.enabled:
                 provider = llm_config.provider
                 if provider == "ollama":
-                    # Ollama doesn't need API key, just check if enabled
-                    has_runtime_provider = True
-                elif provider in ("anthropic", "openai") and llm_config.api_key:
-                    has_runtime_provider = True
+                    return True
+                if provider in ("anthropic", "openai"):
+                    return bool(llm_config.api_key)
+                return False
     except Exception:
         pass
-    
-    return has_anthropic or has_openai or has_runtime_provider
+
+    # Fall back to environment variables only when runtime config is absent/disabled.
+    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
+    return has_anthropic or has_openai
 
 
 def _normalize_mode(value: Any, default: str = "demo") -> str:
@@ -6449,6 +6446,30 @@ class SessionSTTStreamManager:
             },
         }
 
+    @staticmethod
+    def _build_live_llm_failure_notice(failure_kind: str) -> str:
+        normalized = str(failure_kind or "").strip().lower()
+        runtime_config = load_runtime_config_payload() or {}
+        runtime_llm = runtime_config.get("llm") if isinstance(runtime_config.get("llm"), dict) else {}
+        configured_provider = str(runtime_llm.get("provider") or "").strip().lower()
+        provider_label = "Anthropic" if configured_provider == "anthropic" else "the configured LLM"
+        if normalized == "api_key_missing":
+            return (
+                f"I could not generate a reliable answer because the {provider_label} API key is missing in Settings. "
+                "Open Settings, add the key, and save it again."
+            )
+        if normalized == "authenticationerror":
+            return (
+                f"I could not generate a reliable answer because {provider_label} rejected the configured API key. "
+                "Open Settings, re-enter the key, and save it again."
+            )
+        if normalized in {"api_connectionerror", "apiconnectionerror"}:
+            return (
+                f"I could not generate a reliable answer because {provider_label} could not be reached from this machine. "
+                "Check network access and try again."
+            )
+        return "I could not generate a reliable answer because the live brain planner failed."
+
     async def _build_live_frozen_snapshot_v3(
         self,
         *,
@@ -6905,6 +6926,48 @@ class SessionSTTStreamManager:
                         "warm_failed_before_finalize": True,
                     }
                 )
+
+        llm_failure_kind = str(self._live_brain_last_llm_failure_kind or "").strip().lower()
+        if llm_failure_kind in {"authenticationerror", "api_connectionerror", "apiconnectionerror", "api_key_missing"}:
+            self._live_brain_last_failure_reason = llm_failure_kind
+            failure_notice = self._build_live_llm_failure_notice(llm_failure_kind)
+            failure_result = {
+                "full_response": failure_notice,
+                "bullets": [failure_notice],
+                "confidence": 0.0,
+                "latency_ms": 0,
+                "metadata": {
+                    "emit_stream_used": False,
+                    "emit_stream_first_chunk_ms": None,
+                    "emit_stream_completed_ms": None,
+                    "emit_stream_chunk_count": 0,
+                    "emit_stream_partial_salvaged": False,
+                    "finalizer_primary_mode": "normal",
+                    "finalizer_primary_success": False,
+                    "recovery_draft_available": False,
+                    "finalizer_recovery_attempted": False,
+                    "finalizer_recovery_kind": "none",
+                    "finalizer_recovery_success": False,
+                    "finalizer_recovery_skipped_reason": "llm_auth_failure",
+                    "finalizer_fallback_kind": "explicit_failure",
+                    "llm_called": False,
+                    "provider": None,
+                    "model": None,
+                    "configured_provider": None,
+                    "configured_model": None,
+                    "emit_failure_kind": llm_failure_kind,
+                    "output_sanitizer_applied": False,
+                },
+            }
+            self._live_last_warm_debug["emit_failure_kind"] = llm_failure_kind
+            response = self._build_live_v3_response_payload(
+                snapshot=snapshot,
+                interview_config=interview_config,
+                final_result=failure_result,
+                path_used="brain_llm_failure_notice",
+                direct_brain_served=False,
+            )
+            return response, "brain_llm_failure_notice", silence_wait_ms, quality_prewarm_wait_ms, draft_ready_at_silence
 
         if (
             self._brain_warm_inflight_checkpoint_v3 is not None

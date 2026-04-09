@@ -346,6 +346,11 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   },
 };
 
+function pickString(primary: string | undefined, fallback: string): string {
+  const value = typeof primary === "string" ? primary.trim() : "";
+  return value ? value : fallback;
+}
+
 function isRuntimeConfig(value: unknown): value is RuntimeConfig {
   if (!value || typeof value !== "object") return false;
   const config = value as RuntimeConfig;
@@ -369,6 +374,26 @@ function isRuntimeConfig(value: unknown): value is RuntimeConfig {
       typeof config.latency.suggestion_cooldown_sec === "number"
     ))
   );
+}
+
+export function mergeRuntimeConfig(primary: RuntimeConfig, fallback: RuntimeConfig): RuntimeConfig {
+  return {
+    llm: {
+      provider: pickString(primary.llm.provider, fallback.llm.provider) as RuntimeConfig["llm"]["provider"],
+      model: pickString(primary.llm.model, fallback.llm.model),
+      api_key: pickString(primary.llm.api_key, fallback.llm.api_key),
+      enabled: primary.llm.enabled,
+      base_url: pickString(primary.llm.base_url, fallback.llm.base_url ?? "http://localhost:11434"),
+    },
+    stt: {
+      provider: pickString(primary.stt.provider, fallback.stt.provider) as RuntimeConfig["stt"]["provider"],
+      model: pickString(primary.stt.model, fallback.stt.model),
+      api_key: pickString(primary.stt.api_key, fallback.stt.api_key),
+      enabled: primary.stt.enabled,
+    },
+    latency: primary.latency ?? fallback.latency,
+    auto_suggestion: primary.auto_suggestion ?? fallback.auto_suggestion,
+  };
 }
 
 export function saveRuntimeConfig(config: RuntimeConfig): void {

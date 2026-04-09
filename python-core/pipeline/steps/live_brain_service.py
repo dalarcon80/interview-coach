@@ -733,7 +733,8 @@ class LiveBrainService:
     ) -> tuple[Optional[BrainPlan], str]:
         adapter = self._resolve_adapter(alias=self.config.llm_alias)
         if adapter is None:
-            self.last_llm_failure_kind = "adapter_unavailable"
+            if not self.last_llm_failure_kind:
+                self.last_llm_failure_kind = "adapter_unavailable"
             return None, self.last_llm_failure_kind
 
         prompt = self._build_prompt(
@@ -7916,39 +7917,41 @@ JSON schema:
         runtime_api_key = runtime_llm.get("api_key") or ""
         runtime_model = str(runtime_llm.get("model") or "").strip()
 
-        if alias == "fast":
-            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
+        if runtime_enabled:
+            if runtime_provider == "anthropic":
+                if runtime_api_key:
+                    adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-20250514")
+                    adapter.api_key = runtime_api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+            if runtime_provider == "openai":
+                if runtime_api_key:
+                    adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
+                    adapter.api_key = runtime_api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+            if runtime_provider == "ollama":
+                return OllamaLLMAdapter(
+                    model=runtime_model or ("llama3.2:1b" if alias == "fast" else "qwen3.5:latest"),
+                    base_url=runtime_llm.get("base_url") or "http://localhost:11434",
+                )
+
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if anthropic_key:
+            adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-5-20250929")
+            adapter.api_key = anthropic_key
+            return adapter
+        if openai_key:
+            adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
+            adapter.api_key = openai_key
+            return adapter
+        if runtime_enabled and runtime_provider == "ollama":
+            return OllamaLLMAdapter(
+                model=runtime_model or ("llama3.2:1b" if alias == "fast" else "qwen3.5:latest"),
+                base_url=runtime_llm.get("base_url") or "http://localhost:11434",
             )
-            openai_key = os.getenv("OPENAI_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
-            )
-            if anthropic_key:
-                adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-20250514")
-                adapter.api_key = anthropic_key
-                return adapter
-            if openai_key:
-                adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
-                adapter.api_key = openai_key
-                return adapter
-            if runtime_enabled and runtime_provider == "ollama":
-                return OllamaLLMAdapter(model=runtime_model or "llama3.2:1b", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
-        else:
-            anthropic_key = os.getenv("ANTHROPIC_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "anthropic" else ""
-            )
-            openai_key = os.getenv("OPENAI_API_KEY") or (
-                runtime_api_key if runtime_enabled and runtime_provider == "openai" else ""
-            )
-            if anthropic_key:
-                adapter = AnthropicLLMAdapter(model=runtime_model or "claude-sonnet-4-5-20250929")
-                adapter.api_key = anthropic_key
-                return adapter
-            if openai_key:
-                adapter = OpenAILLMAdapter(model=runtime_model or "gpt-4o")
-                adapter.api_key = openai_key
-                return adapter
-            if runtime_enabled and runtime_provider == "ollama":
-                return OllamaLLMAdapter(model=runtime_model or "qwen3.5:latest", base_url=runtime_llm.get("base_url") or "http://localhost:11434")
 
         return None
