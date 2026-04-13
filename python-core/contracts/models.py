@@ -252,6 +252,9 @@ class ActiveAskState(BaseModel):
     source_turn_end_index: Optional[int] = None
     opened_at: Optional[float] = None
     updated_at: Optional[float] = None
+    last_active_ask_frozen_at: Optional[float] = None
+    last_active_ask_frozen_question_key: str = ""
+    last_active_ask_frozen_interviewer_generation: Optional[int] = None
     last_answer_committed_at: Optional[float] = None
     last_answer_committed_question_key: str = ""
     last_answer_committed_interviewer_generation: Optional[int] = None

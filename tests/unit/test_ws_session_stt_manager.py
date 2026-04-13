@@ -1177,8 +1177,51 @@ def test_live_turn_window_uses_conversation_history_as_source_of_truth():
     raw_turns = manager._get_raw_live_turn_window(limit=5)
 
     assert len(raw_turns) == 3
-    assert "expectations in terms of the role" in raw_turns[0]["text"]
-    assert "what kind of things you absolutely don't like" in raw_turns[-1]["text"].lower()
+    assert raw_turns[0]["text"] == "We were talking about, like, your expectations in terms of the role"
+    assert raw_turns[-1]["text"] == (
+        "the company, the culture, teams? What's important for you, or what kind of things you absolutely don't like."
+    )
+
+
+def test_live_turn_window_prefers_tracker_active_turn_over_richer_ui_history():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-tracker-over-ui",
+        default_mode="real",
+    )
+
+    tracker.add_turn(
+        speaker="interviewer",
+        text="Tell me a little bit more about Globant.",
+        utterance_count=1,
+        start_time=0.0,
+        end_time=0.8,
+        reason="final",
+    )
+
+    manager._record_ui_equivalent_transcript_entry(
+        text="Summarize the type of position that you've had.",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=1_000,
+    )
+    manager._record_ui_equivalent_transcript_entry(
+        text="Tell me a little bit more about Globant.",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=2_000,
+    )
+
+    raw_turns = manager._get_raw_live_turn_window(limit=5)
+
+    assert len(raw_turns) == 1
+    assert raw_turns[0]["speaker"] == "interviewer"
+    assert raw_turns[0]["text"] == "Tell me a little bit more about Globant."
 
 
 def test_ui_equivalent_transcript_history_matches_frontend_rolling_consolidation():
@@ -1455,11 +1498,14 @@ def test_build_live_brain_snapshot_v3_uses_conversation_history_as_brain_source_
     snapshot = manager._build_live_brain_snapshot_v3(limit=5)
 
     assert snapshot is not None
-    lowered = snapshot.snapshot_text.lower()
-    assert "building from 0" in lowered
-    assert "team management experience" in lowered
-    assert "how big were the teams you've managed?" in lowered
-    assert "start telling us" in lowered
+    assert len(snapshot.conversation_history) == 3
+    assert snapshot.conversation_history[0]["text"] == (
+        "Now I wanna get a sense of your experience in building from 0, building from scratch. "
+        "Early stages. And then, also very curious to hear about your team management experience."
+    )
+    assert snapshot.conversation_history[-1]["text"] == (
+        "What roles did they have, etcetera. Yeah. And last question as as we go. So if you want, just kind of start telling us"
+    )
 
 
 def test_build_live_brain_snapshot_v3_preserves_last_five_tracker_turns_without_semantic_rewrite():
@@ -1573,12 +1619,14 @@ def test_build_live_brain_snapshot_v3_prefers_ui_equivalent_transcript_history_f
 
     assert snapshot is not None
     assert len(snapshot.conversation_history) == 3
-    assert snapshot.conversation_history[1]["text"] == (
-        "And then, also very curious to hear about your team management experience. How big were the teams you've managed?"
+    assert snapshot.conversation_history[0]["text"] == (
+        "companies or experiences that you've had where you had to build from 0. "
+        "Whether it was building a product from 0, a team from 0, a a service from 0. "
+        "Now I wanna get a sense of your experience in building from 0, building from scratch. Early stages."
     )
-    assert snapshot.conversation_history[2]["text"].rstrip(".") == (
+    assert snapshot.conversation_history[-1]["text"].rstrip(".") == (
         "What roles did they have, etcetera. Yeah. And last question as as we go. So if you want, just kinda start telling us or telling me a little bit about you"
-    )
+    ).rstrip(".")
 
 
 def test_build_live_brain_snapshot_v3_prefers_richer_tracker_turn_when_ui_equivalent_last_turn_is_truncated():
@@ -1628,7 +1676,12 @@ def test_build_live_brain_snapshot_v3_prefers_richer_tracker_turn_when_ui_equiva
 
     assert snapshot is not None
     assert len(snapshot.conversation_history) == 5
-    assert snapshot.conversation_history[-1]["text"].rstrip(".") == tracker_turns[-1].rstrip(".")
+    for actual, expected in zip(
+        [turn["text"] for turn in snapshot.conversation_history],
+        tracker_turns,
+        strict=True,
+    ):
+        assert actual.rstrip(".") == expected.rstrip(".")
     assert "little bit about you" in snapshot.conversation_history[-1]["text"].lower()
 
 
@@ -1772,7 +1825,6 @@ def test_build_live_brain_snapshot_v3_uses_post_commit_follow_up_as_active_conte
         default_mode="real",
     )
     manager._latest_interviewer_generation = 2
-    manager._get_raw_live_turn_window = MagicMock(return_value=tracker.get_last_n_turns(limit=10))
 
     snapshot = manager._build_live_brain_snapshot_v3(limit=5)
 
@@ -1781,6 +1833,413 @@ def test_build_live_brain_snapshot_v3_uses_post_commit_follow_up_as_active_conte
     assert len(snapshot.conversation_history) == 1
     assert snapshot.conversation_history[0]["speaker"] == "interviewer"
     assert snapshot.conversation_history[0]["text"] == "Tell me about your team management experience."
+
+
+@pytest.mark.asyncio
+async def test_auto_silence_freezes_active_ask_only_when_emitting_suggestion():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    assert tracker.add_turn(
+        speaker="interviewer",
+        text="Summarize the type of position that you've had.",
+        utterance_count=1,
+        start_time=0.0,
+        end_time=0.8,
+        reason="final",
+    )
+    assert tracker.add_turn(
+        speaker="interviewer",
+        text="Tell me a little bit more about Globant.",
+        utterance_count=1,
+        start_time=40.0,
+        end_time=40.8,
+        reason="final",
+    )
+
+    tracker.record_active_ask_frozen = MagicMock(wraps=tracker.record_active_ask_frozen)
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-freeze-before-snapshot",
+        default_mode="real",
+    )
+    manager._live_brain_v3_enabled = False
+    manager._silence_detector.should_trigger_suggestion = MagicMock(return_value=True)
+    manager._silence_detector.record_trigger = MagicMock()
+    manager._silence_detector.record_completion = MagicMock()
+    manager._silence_detector.get_remaining_cooldown = MagicMock(return_value=0.0)
+    manager._live_snapshot_is_current = MagicMock(return_value=True)
+
+    snapshot = LiveFrozenSnapshot(
+        raw_turn_window=[{"speaker": "interviewer", "text": "Tell me a little bit more about Globant."}],
+        turn_window=[{"speaker": "interviewer", "text": "Tell me a little bit more about Globant."}],
+        raw_context_bundle={"primary_question_index": 0, "interviewer_question_index": 0},
+        signature="fresh-live-sig",
+        question_text="Tell me a little bit more about Globant.",
+        conversation_history=[{"speaker": "interviewer", "text": "Tell me a little bit more about Globant."}],
+        prepared_context=None,
+        request_payload={
+            "question": "Tell me a little bit more about Globant.",
+            "conversation_history": [{"speaker": "interviewer", "text": "Tell me a little bit more about Globant."}],
+        },
+        question_source="live_turn_window_fallback",
+        cache_hit=False,
+        question_key="tell me a little bit more about globant.",
+    )
+
+    async def _fake_build_live_frozen_snapshot(*args, **kwargs):
+        assert tracker.record_active_ask_frozen.called is False
+        return snapshot
+
+    manager._build_live_frozen_snapshot = AsyncMock(side_effect=_fake_build_live_frozen_snapshot)
+    manager._generate_live_response_from_snapshot = AsyncMock(
+        return_value=(_shared_suggest_response(), "writer_emergency_fallback", 0, 0, False)
+    )
+
+    _force_hard_silence(manager)
+    await manager._try_auto_trigger_suggestion(
+        SpeakerTurn(
+            speaker="interviewer",
+            text="Tell me a little bit more about Globant.",
+            start_time=40.0,
+            end_time=40.8,
+        ),
+        generation_token=2,
+    )
+
+    tracker.record_active_ask_frozen.assert_called_once()
+    assert tracker.state.last_active_ask_frozen_question_key == "tell me a little bit more about globant."
+    assert tracker.state.last_active_ask_frozen_at is not None
+
+
+def test_build_live_brain_snapshot_v3_keeps_only_latest_post_commit_interviewer_turn_active():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    for text, start_time in [
+        ("With data, data strategy, working with data, and all of that, maybe summarize the type of position that you've had?", 0.0),
+        ("Tell me a little bit more about Globant.", 40.0),
+        ("Okay. So does that mean that you work on projects yourself?", 50.0),
+    ]:
+        accepted = tracker.add_turn(
+            speaker="interviewer",
+            text=text,
+            utterance_count=1,
+            start_time=start_time,
+            end_time=start_time + 0.8,
+            reason="final",
+        )
+        assert accepted is True
+
+    tracker.record_answer_committed(
+        committed_at=5.0,
+        question_key="with data, data strategy, working with data, and all of that, maybe summarize the type of position that you've had?",
+        interviewer_generation=1,
+    )
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-post-commit-latest-only",
+        default_mode="real",
+    )
+    manager._latest_interviewer_generation = 2
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert snapshot.snapshot_text == "Okay. So does that mean that you work on projects yourself?"
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.conversation_history[0]["speaker"] == "interviewer"
+    assert snapshot.conversation_history[0]["text"] == "Okay. So does that mean that you work on projects yourself?"
+
+
+def test_build_live_brain_snapshot_v3_prefers_tracker_active_window_over_dirty_raw_window():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    for text, start_time in [
+        (
+            "I just wanted to talk a little bit about your experience with",
+            0.0,
+        ),
+        (
+            "with data, data strategy, working with data, and and that kind of, you know, business intelligence, all of these things. So maybe you can I see mean, I've seen your your resume, but maybe you can summarize the the type, of position that you've that you've had?",
+            72.0,
+        ),
+        (
+            "Tell me a little bit more about Globant.",
+            78.0,
+        ),
+    ]:
+        accepted = tracker.add_turn(
+            speaker="interviewer",
+            text=text,
+            utterance_count=1,
+            start_time=start_time,
+            end_time=start_time + 0.8,
+            reason="final",
+        )
+        assert accepted is True
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-tracker-first-window",
+        default_mode="real",
+    )
+    manager._latest_interviewer_generation = 2
+    manager._get_raw_live_turn_window = MagicMock(
+        side_effect=AssertionError("dirty raw fallback should not be needed when tracker has an active window")
+    )
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert snapshot.snapshot_text == "Tell me a little bit more about Globant."
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.conversation_history[0]["speaker"] == "interviewer"
+    assert snapshot.conversation_history[0]["text"] == "Tell me a little bit more about Globant."
+
+
+def test_build_live_brain_snapshot_v3_prefers_newer_ui_followup_over_stale_tracker_active_window():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    tracker.add_turn(
+        speaker="interviewer",
+        text=(
+            "with data, data strategy, working with data, and and that kind of, you know, business intelligence, "
+            "all of these things. So maybe you can summarize the type of position that you've had?"
+        ),
+        utterance_count=1,
+        start_time=100.0,
+        end_time=100.8,
+        reason="final",
+    )
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-ui-newer-than-stale-tracker-active",
+        default_mode="real",
+    )
+    manager._record_ui_equivalent_transcript_entry(
+        text="Tell me a little bit more about Globant.",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=180_000,
+    )
+    manager._record_ui_equivalent_transcript_entry(
+        text="Okay. So does that mean that you work on on projects yourself?",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=240_000,
+    )
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert snapshot.snapshot_text == "Okay. So does that mean that you work on on projects yourself?"
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.conversation_history[0]["text"] == "Okay. So does that mean that you work on on projects yourself?"
+
+
+def test_build_live_brain_snapshot_v3_isolates_same_tail_ui_history_after_committed_answer():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-ui-same-tail-after-commit",
+        default_mode="real",
+    )
+
+    turns = [
+        ("For now, that that's how it is. And I guess", 100.0),
+        ("I just wanted to talk a little bit about your experience with", 108.0),
+        (
+            "with data, data strategy, working with data, and and that kind of, you know, business intelligence, "
+            "all of these things. So, maybe you can I see I mean, seen your your resume, "
+            "but maybe you can summarize the the type of, of position that you've that you've had?",
+            126.0,
+        ),
+        ("Tell me a little bit more about Globant.", 207.0),
+    ]
+    for text, start_time in turns:
+        tracker.add_turn(
+            speaker="interviewer",
+            text=text,
+            utterance_count=1,
+            start_time=start_time,
+            end_time=start_time + 0.8,
+            reason="final",
+        )
+        manager_timestamp = int(start_time * 1000)
+        # Mirror the finalized live-caption history that the UI already displayed.
+        # The final turn is intentionally the same tail as the tracker reference.
+        manager._record_ui_equivalent_transcript_entry(
+            text=text,
+            speaker="interviewer",
+            is_final=True,
+            timestamp_ms=manager_timestamp,
+        )
+
+    tracker.record_answer_committed(
+        committed_at=140.0,
+        question_key=turns[2][0],
+        interviewer_generation=3,
+    )
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.snapshot_text == "Tell me a little bit more about Globant."
+    assert snapshot.conversation_history[0]["text"] == "Tell me a little bit more about Globant."
+
+
+def test_build_live_brain_snapshot_v3_isolates_same_tail_ui_history_after_served_suggestion_boundary():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-ui-same-tail-after-served-suggestion",
+        default_mode="real",
+    )
+
+    turns = [
+        ("I just wanted to talk a little bit about your experience with", 100.0),
+        (
+            "with data, data strategy, working with data, and that kind of business intelligence. "
+            "Maybe you can summarize the type of position that you've had?",
+            120.0,
+        ),
+        ("Tell me a little bit more about Globant.", 190.0),
+    ]
+    for text, start_time in turns:
+        tracker.add_turn(
+            speaker="interviewer",
+            text=text,
+            utterance_count=1,
+            start_time=start_time,
+            end_time=start_time + 0.8,
+            reason="final",
+        )
+        manager._record_ui_equivalent_transcript_entry(
+            text=text,
+            speaker="interviewer",
+            is_final=True,
+            timestamp_ms=int(start_time * 1000),
+        )
+
+    manager._last_auto_suggestion_interviewer_activity_at = 130.0
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.snapshot_text == "Tell me a little bit more about Globant."
+    assert snapshot.conversation_history[0]["text"] == "Tell me a little bit more about Globant."
+
+
+def test_build_live_brain_snapshot_v3_keeps_tracker_isolated_tail_over_same_tail_ui_history_without_boundary():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-ui-same-tail-no-boundary",
+        default_mode="real",
+    )
+
+    turns = [
+        ("For now, that that's how it is. And I guess", 100.0),
+        ("I just wanted to talk a little bit about your ex experience with", 108.0),
+        (
+            "with data, data strategy, working with data, and and that of, you know, business intelligence, "
+            "all of these things. So maybe you can I see I mean, I've seen your your resume, "
+            "but maybe you can summarize the the type of, of position that you've that you've had?",
+            126.0,
+        ),
+        ("Tell me a little bit more about Globant.", 207.0),
+    ]
+    for text, start_time in turns:
+        tracker.add_turn(
+            speaker="interviewer",
+            text=text,
+            utterance_count=1,
+            start_time=start_time,
+            end_time=start_time + 0.8,
+            reason="final",
+        )
+        manager._record_ui_equivalent_transcript_entry(
+            text=text,
+            speaker="interviewer",
+            is_final=True,
+            timestamp_ms=int(start_time * 1000),
+        )
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.snapshot_text == "Tell me a little bit more about Globant."
+    assert snapshot.conversation_history[0]["text"] == "Tell me a little bit more about Globant."
+
+
+def test_build_live_brain_snapshot_v3_uses_newer_ui_followup_after_tracker_boundary_closed():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    old_question = (
+        "with data, data strategy, working with data, and and that kind of, you know, business intelligence, "
+        "all of these things. So maybe you can summarize the type of position that you've had?"
+    )
+    tracker.add_turn(
+        speaker="interviewer",
+        text=old_question,
+        utterance_count=1,
+        start_time=100.0,
+        end_time=100.8,
+        reason="final",
+    )
+    tracker.record_answer_committed(
+        committed_at=101.0,
+        question_key=old_question,
+        interviewer_generation=1,
+    )
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-ui-newer-than-closed-boundary",
+        default_mode="real",
+    )
+    manager._record_ui_equivalent_transcript_entry(
+        text="Tell me a little bit more about Globant.",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=180_000,
+    )
+
+    snapshot = manager._build_live_brain_snapshot_v3(limit=5)
+
+    assert snapshot is not None
+    assert snapshot.snapshot_text == "Tell me a little bit more about Globant."
+    assert len(snapshot.conversation_history) == 1
+    assert snapshot.conversation_history[0]["text"] == "Tell me a little bit more about Globant."
 
 
 def test_live_snapshot_is_current_rejects_changed_brain_snapshot_hash():
@@ -1825,6 +2284,86 @@ def test_live_snapshot_is_current_rejects_changed_brain_snapshot_hash():
         planner=None,
         generation_token=None,
         tracker=None,
+    ) is False
+
+
+def test_live_snapshot_is_current_rejects_newer_ui_followup_when_tracker_lags():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+    tracker = pipeline.conversation_tracker
+
+    tracker.add_turn(
+        speaker="interviewer",
+        text=(
+            "with data, data strategy, working with data, and and that kind of, you know, business intelligence, "
+            "all of these things. So maybe you can summarize the type of position that you've had?"
+        ),
+        utterance_count=1,
+        start_time=100.0,
+        end_time=100.8,
+        reason="final",
+    )
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-current-ui-newer-than-tracker",
+        default_mode="real",
+    )
+    manager._record_ui_equivalent_transcript_entry(
+        text="Tell me a little bit more about Globant.",
+        speaker="interviewer",
+        is_final=True,
+        timestamp_ms=180_000,
+    )
+
+    snapshot = LiveFrozenSnapshot(
+        raw_turn_window=[
+            {
+                "speaker": "interviewer",
+                "text": "with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+            }
+        ],
+        turn_window=[
+            {
+                "speaker": "interviewer",
+                "text": "with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+            }
+        ],
+        raw_context_bundle={},
+        signature="stale-ui-lagging-signature",
+        question_text="with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": "with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+            }
+        ],
+        prepared_context=None,
+        request_payload={"question": "with data, data strategy, working with data, and maybe summarize the type of position that you've had?"},
+        question_source="live_brain_v4",
+        cache_hit=False,
+        brain_snapshot=BrainSnapshot(
+            session_id="session-stt-live-current-ui-newer-than-tracker",
+            utterance_id="u-ui-newer-than-tracker",
+            revision_id=1,
+            snapshot_text="with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+            conversation_history=[
+                {
+                    "speaker": "interviewer",
+                    "text": "with data, data strategy, working with data, and maybe summarize the type of position that you've had?",
+                }
+            ],
+            snapshot_hash="stale-ui-lagging-signature",
+            timestamp=datetime.utcnow(),
+        ),
+    )
+
+    assert manager._live_snapshot_is_current(
+        snapshot=snapshot,
+        planner=None,
+        generation_token=None,
+        tracker=tracker,
     ) is False
 
 
@@ -2050,6 +2589,110 @@ async def test_auto_silence_v3_waits_for_stabilization_and_prefers_richer_snapsh
 
 
 @pytest.mark.asyncio
+async def test_auto_silence_partial_snapshot_waits_for_more_interviewer_context_without_burning_state():
+    websocket = _FakeWebSocket()
+    pipeline = _build_live_pipeline_stub()
+
+    manager = SessionSTTStreamManager(
+        websocket=websocket,
+        pipeline=pipeline,
+        session_id="session-stt-live-v3-partial-tail",
+        default_mode="real",
+    )
+    manager._live_brain_v3_enabled = True
+    manager._live_question_stabilization_sec = 0.0
+    manager._silence_detector.should_trigger_suggestion = MagicMock(return_value=True)
+    manager._silence_detector.record_trigger = MagicMock()
+    manager._silence_detector.record_completion = MagicMock()
+    manager._silence_detector.get_remaining_cooldown = MagicMock(return_value=0.0)
+
+    partial_plan = BrainPlan(
+        resolved_question="I just wanted to talk a little bit about your experience with",
+        ordered_asks=["I just wanted to talk a little bit about your experience with"],
+        raw_detected_asks=["I just wanted to talk a little bit about your experience with"],
+        coverage_points=["experience"],
+        question_completeness="partial",
+        response_shape="direct_short",
+        directness="direct",
+        include_profile_opening=False,
+        evidence_depth="light",
+        metrics_policy="avoid_unless_helpful",
+        company_context_policy="support_if_relevant",
+        candidate_context_policy="required",
+        ordered_coverage_required=True,
+        target_length=80,
+        draft_answer="",
+        serve_mode="finalize_from_plan",
+        confidence=0.2,
+        stability_state="stable",
+        plan_source="safe_fallback",
+    )
+    partial_brain_snapshot = BrainSnapshot(
+        session_id="session-stt-live-v3-partial-tail",
+        utterance_id="u-partial-tail",
+        revision_id=1,
+        snapshot_text="I just wanted to talk a little bit about your experience with",
+        conversation_history=[
+            {
+                "speaker": "interviewer",
+                "text": "I just wanted to talk a little bit about your experience with",
+            }
+        ],
+        snapshot_hash="partial-tail-hash",
+        timestamp=datetime.utcnow(),
+    )
+    partial_snapshot = LiveFrozenSnapshot(
+        raw_turn_window=[
+            {"speaker": "interviewer", "text": "I just wanted to talk a little bit about your experience with"},
+        ],
+        turn_window=[
+            {"speaker": "interviewer", "text": "I just wanted to talk a little bit about your experience with"},
+        ],
+        raw_context_bundle={},
+        signature="partial-tail-hash",
+        question_text="I just wanted to talk a little bit about your experience with",
+        conversation_history=partial_brain_snapshot.conversation_history,
+        prepared_context=None,
+        request_payload={"question": "I just wanted to talk a little bit about your experience with"},
+        question_source="live_brain_v4",
+        cache_hit=False,
+        checkpoint_id="checkpoint-partial-tail",
+        question_key="partial-tail-key",
+        brain_snapshot=partial_brain_snapshot,
+        brain_plan=partial_plan,
+        compact_evidence_pack=CompactEvidencePack(plan_hash="partial-tail-plan-hash", mode="minimal"),
+        plan_hash="partial-tail-plan-hash",
+    )
+
+    manager._build_live_frozen_snapshot = AsyncMock(return_value=partial_snapshot)
+    manager._generate_live_response_from_snapshot = AsyncMock()
+    manager._merge_current_live_interviewer_block(
+        text="I just wanted to talk a little bit about your experience with",
+        event_time=time.time(),
+    )
+
+    _force_hard_silence(manager)
+    await manager._try_auto_trigger_suggestion(
+        SpeakerTurn(
+            speaker="interviewer",
+            text="I just wanted to talk a little bit about your experience with",
+            start_time=0.0,
+            end_time=1.0,
+        ),
+        generation_token=1,
+    )
+
+    assert manager._build_live_frozen_snapshot.await_count == 2
+    manager._generate_live_response_from_snapshot.assert_not_awaited()
+    manager._silence_detector.record_trigger.assert_not_called()
+    assert manager._answer_gate_reason == "waiting_for_more_interviewer_context"
+    assert manager._current_live_interviewer_block is not None
+    assert manager._current_live_interviewer_block.text == "I just wanted to talk a little bit about your experience with"
+    assert manager._completed_live_interviewer_blocks == []
+    assert not websocket.events
+
+
+@pytest.mark.asyncio
 async def test_auto_silence_rebuilds_stale_snapshot_before_emitting_response():
     websocket = _FakeWebSocket()
     pipeline = _build_live_pipeline_stub()
@@ -2090,6 +2733,7 @@ async def test_auto_silence_rebuilds_stale_snapshot_before_emitting_response():
         brain_plan=BrainPlan(
             resolved_question="What roles did they have?",
             ordered_asks=["What roles did they have?"],
+            question_completeness="complete",
             response_shape="direct_short",
             directness="direct",
             target_length=100,
@@ -2123,6 +2767,7 @@ async def test_auto_silence_rebuilds_stale_snapshot_before_emitting_response():
         brain_plan=BrainPlan(
             resolved_question="Tell me a bit about yourself",
             ordered_asks=["Tell me a bit about yourself"],
+            question_completeness="complete",
             response_shape="direct_short",
             directness="direct",
             target_length=100,
@@ -2355,18 +3000,27 @@ async def test_auto_silence_aborts_when_interviewer_resumes_during_emit():
     )
 
     snapshot = LiveFrozenSnapshot(
-        raw_turn_window=[{"speaker": "interviewer", "text": "Tell me about your leadership experience"}],
-        turn_window=[{"speaker": "interviewer", "text": "Tell me about your leadership experience"}],
+        raw_turn_window=[{"speaker": "interviewer", "text": "Tell me about your leadership experience."}],
+        turn_window=[{"speaker": "interviewer", "text": "Tell me about your leadership experience."}],
         raw_context_bundle={},
         signature="resume-during-emit-sig",
-        question_text="Tell me about your leadership experience",
-        conversation_history=[{"speaker": "interviewer", "text": "Tell me about your leadership experience"}],
+        question_text="Tell me about your leadership experience.",
+        conversation_history=[{"speaker": "interviewer", "text": "Tell me about your leadership experience."}],
         prepared_context=None,
-        request_payload={"question": "Tell me about your leadership experience"},
+        request_payload={"question": "Tell me about your leadership experience."},
         question_source="live_brain_v4",
         cache_hit=True,
         checkpoint_id="resume-during-emit-checkpoint",
         question_key="resume-during-emit-question-key",
+        brain_plan=BrainPlan(
+            resolved_question="Tell me about your leadership experience.",
+            ordered_asks=["Tell me about your leadership experience."],
+            question_completeness="complete",
+            response_shape="direct_short",
+            directness="direct",
+            target_length=100,
+            confidence=0.8,
+        ),
     )
 
     async def _mock_generate(**kwargs):
@@ -2382,7 +3036,7 @@ async def test_auto_silence_aborts_when_interviewer_resumes_during_emit():
     await manager._try_auto_trigger_suggestion(
         SpeakerTurn(
             speaker="interviewer",
-            text="Tell me about your leadership experience",
+            text="Tell me about your leadership experience.",
             start_time=0.0,
             end_time=1.0,
         ),

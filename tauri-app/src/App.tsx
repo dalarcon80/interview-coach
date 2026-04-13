@@ -282,10 +282,12 @@ interface LiveSessionState {
 }
 
 function buildLatestInterviewerQuestionBlock(
-  turns: Array<{ speaker: string; text: string }>
+  turns: Array<{ speaker: string; text: string; timestamp?: number; timestamp_ms?: number }>
 ): string {
   const block: string[] = [];
   let interviewerBlockSeen = false;
+  let nextTurnTime: number | null = null;
+  const INTERVIEWER_BLOCK_GAP_MS = 5000;
 
   for (let index = turns.length - 1; index >= 0; index -= 1) {
     const turn = turns[index];
@@ -293,8 +295,23 @@ function buildLatestInterviewerQuestionBlock(
     if (!text) continue;
 
     if (turn?.speaker === 'interviewer') {
+      const currentTurnTime =
+        typeof turn.timestamp_ms === 'number'
+          ? turn.timestamp_ms
+          : typeof turn.timestamp === 'number'
+            ? turn.timestamp
+            : null;
+      if (
+        interviewerBlockSeen &&
+        currentTurnTime !== null &&
+        nextTurnTime !== null &&
+        nextTurnTime - currentTurnTime > INTERVIEWER_BLOCK_GAP_MS
+      ) {
+        break;
+      }
       interviewerBlockSeen = true;
       block.push(text);
+      nextTurnTime = currentTurnTime;
       continue;
     }
 
@@ -2278,6 +2295,7 @@ function App() {
     const conversationHistory = transcriptsToUse.map(t => ({
       speaker: t.speaker,
       text: t.text,
+      timestamp_ms: t.timestamp,
     }));
     
     const questionText =

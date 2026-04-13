@@ -695,6 +695,7 @@ class LiveQuestionPlanner:
             cfg = get_registry().get_llm_config(alias=self.config.llm_alias)
             provider = (cfg.provider or "").strip().lower()
             model = (cfg.model or "").strip()
+            provider_config = dict(cfg.config or {})
             runtime_config = _get_runtime_config() or {}
             runtime_llm = runtime_config.get("llm") or {}
             runtime_provider = (runtime_llm.get("provider") or "").strip().lower()
@@ -702,59 +703,39 @@ class LiveQuestionPlanner:
             runtime_enabled = bool(runtime_llm.get("enabled"))
             runtime_model = (runtime_llm.get("model") or "").strip()
 
-            def _runtime_adapter() -> Any:
-                if not runtime_enabled:
-                    return None
-                if runtime_provider == "ollama":
-                    base_url = runtime_llm.get("base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
-                    return OllamaLLMAdapter(
-                        model=runtime_model or model or "llama3.2",
-                        base_url=base_url,
-                    )
-                if not runtime_api_key:
-                    return None
-                if runtime_provider == "anthropic":
-                    adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
-                    adapter.api_key = runtime_api_key
-                    return adapter
-                if runtime_provider == "openai":
-                    adapter = OpenAILLMAdapter(model=runtime_model or model or "gpt-4o")
-                    adapter.api_key = runtime_api_key
-                    return adapter
-                return None
-
-            runtime_adapter = _runtime_adapter()
-            if runtime_adapter is not None:
-                print(
-                    "[LiveQuestionPlanner] using runtime llm for planner "
-                    f"runtime_provider={runtime_provider} runtime_model='{(runtime_model or '')[:80]}' "
-                    f"configured_provider={provider} configured_model='{model[:80]}'"
-                )
-                return runtime_adapter
-
             if provider == "ollama":
-                base_url = runtime_llm.get("base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
+                base_url = (
+                    provider_config.get("base_url")
+                    or runtime_llm.get("base_url")
+                    or os.getenv("OLLAMA_BASE_URL")
+                    or "http://localhost:11434"
+                )
                 return OllamaLLMAdapter(model=model or "llama3.2", base_url=base_url)
 
-            if runtime_enabled and runtime_provider in {"anthropic", "openai"}:
-                print(
-                    "[LiveQuestionPlanner] runtime llm is enabled but api_key is missing "
-                    f"runtime_provider={runtime_provider} configured_provider={provider}"
-                )
-                return None
-
             if provider == "anthropic":
-                api_key = os.getenv("ANTHROPIC_API_KEY")
+                api_key = (
+                    runtime_api_key
+                    if runtime_enabled and runtime_provider == "anthropic"
+                    else os.getenv("ANTHROPIC_API_KEY")
+                )
                 if api_key:
-                    adapter = AnthropicLLMAdapter(model=runtime_model or model or "claude-sonnet-4-20250514")
+                    adapter = AnthropicLLMAdapter(model=model or runtime_model or "claude-haiku-4-5-20251001")
                     adapter.api_key = api_key
                     return adapter
+                print("[LiveQuestionPlanner] configured anthropic planner is missing an API key")
+                return None
             if provider == "openai":
-                api_key = os.getenv("OPENAI_API_KEY")
+                api_key = (
+                    runtime_api_key
+                    if runtime_enabled and runtime_provider == "openai"
+                    else os.getenv("OPENAI_API_KEY")
+                )
                 if api_key:
-                    adapter = OpenAILLMAdapter(model=runtime_model or model or "gpt-4o")
+                    adapter = OpenAILLMAdapter(model=model or runtime_model or "gpt-4o-mini")
                     adapter.api_key = api_key
                     return adapter
+                print("[LiveQuestionPlanner] configured openai planner is missing an API key")
+                return None
         except Exception as exc:
             print(f"[LiveQuestionPlanner] fast adapter resolution fallback: {exc}")
 

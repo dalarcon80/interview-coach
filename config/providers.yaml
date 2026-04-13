@@ -32,13 +32,12 @@ providers:
         base_url: "http://localhost:11434"
     fast:
       alias: "llm_fast"
-      provider: "ollama"
-      model: "llama3.2:1b"
+      provider: "anthropic"
+      model: "claude-haiku-4-5-20251001"
       config:
         temperature: 0.2
         max_tokens: 150
         stream: false
-        base_url: "http://localhost:11434"
     local:
       alias: "llm_local"
       provider: "ollama"

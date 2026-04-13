@@ -38,9 +38,11 @@ import yaml
 from pipeline.realtime_pipeline import RealtimePipeline, PipelineConfig
 from pipeline.steps.turn_assembler import TurnAssembler, SpeakerTurn
 from pipeline.silence_detector import (
+    DEFAULT_ACTIVE_ASK_IDLE_CLOSE_SEC,
     SilenceDetector,
     build_realtime_context_bundle,
     resolve_realtime_context_bundle,
+    select_realtime_active_turn_window,
 )
 from pipeline.steps.live_question_planner import LiveQuestionPlanner
 from conversation.speaker_fallback import SpeakerFallbackCorrector
@@ -934,6 +936,145 @@ async def _send_final_suggestion_with_commit(
             "[WS][COMMIT] record_answer_committed_failed "
             f"session_id={session_id} error={exc}"
         )
+
+
+def _build_active_pipeline_suggest_context(
+    *,
+    conversation_tracker: Any,
+    history_count: int,
+    question_text: str,
+    preserve_question_text: bool,
+) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Resolve the live session history using the tracker-normalized active window."""
+    context_bundle = build_realtime_context_bundle(conversation_tracker, limit=history_count) or {}
+    active_turns = context_bundle.get("turns") or context_bundle.get("active_turns") or []
+    conversation_history = [
+        {
+            "speaker": turn.get("speaker", "unknown"),
+            "text": _strip_transcript_artifacts(turn.get("text", "")),
+        }
+        for turn in active_turns
+        if _strip_transcript_artifacts(turn.get("text", ""))
+    ]
+
+    resolved_question = str(context_bundle.get("primary_question", "") or "")
+    if resolved_question and (not preserve_question_text or not question_text):
+        question_text = resolved_question
+
+    return conversation_history, question_text, context_bundle
+
+
+def _build_history_based_suggest_context(
+    *,
+    recent_exchanges: list[dict[str, Any]],
+    question_text: str,
+    preserve_question_text: bool,
+) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Resolve a database-backed history request to its latest active interviewer turn."""
+    recent_turns: list[dict[str, Any]] = []
+    for index, exchange in enumerate(recent_exchanges):
+        text = _strip_transcript_artifacts(exchange.get("interviewer_utterance", ""))
+        if not text:
+            continue
+
+        turn: dict[str, Any] = {
+            "speaker": "interviewer",
+            "text": text,
+        }
+        timestamp = (
+            exchange.get("timestamp")
+            or exchange.get("created_at")
+            or exchange.get("createdAt")
+            or exchange.get("created")
+        )
+        if timestamp not in {None, ""}:
+            turn["timestamp"] = timestamp
+        else:
+            # DB exchanges are already answer-bounded units. Missing timestamps
+            # must not collapse separate exchanges into one active spoken block.
+            turn["timestamp_ms"] = int(index * (DEFAULT_ACTIVE_ASK_IDLE_CLOSE_SEC + 1.0) * 1000)
+        recent_turns.append(turn)
+
+    context_bundle = resolve_realtime_context_bundle(recent_turns)
+    active_turns = context_bundle.get("turns") or context_bundle.get("active_turns") or []
+    historical_turns = context_bundle.get("historical_turns", [])
+    conversation_history = [
+        {
+            "speaker": turn.get("speaker", "unknown"),
+            "text": _strip_transcript_artifacts(turn.get("text", "")),
+        }
+        for turn in active_turns
+        if _strip_transcript_artifacts(turn.get("text", ""))
+    ]
+
+    resolved_question = str(context_bundle.get("primary_question", "") or "")
+    if resolved_question and (not preserve_question_text or not question_text):
+        question_text = resolved_question
+
+    context_bundle = {
+        **context_bundle,
+        "turns": active_turns,
+        "active_turns": active_turns,
+        "historical_turns": historical_turns,
+        "source_turns": recent_turns,
+        "source_turn_count": len(recent_turns),
+        "active_turn_count": len(active_turns),
+        "historical_turn_count": len(historical_turns),
+    }
+
+    return conversation_history, question_text, context_bundle
+
+
+def _build_frontend_suggest_context(
+    *,
+    frontend_conversation_history: list[dict[str, Any]],
+    question_text: str,
+    preserve_question_text: bool,
+) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Resolve the live frontend transcript history into the active interviewer block."""
+    frontend_turns: list[dict[str, Any]] = []
+    for turn in frontend_conversation_history:
+        text = _strip_transcript_artifacts(turn.get("text", ""))
+        if not text:
+            continue
+
+        normalized_turn: dict[str, Any] = {
+            "speaker": turn.get("speaker", "unknown"),
+            "text": text,
+        }
+        for key in ("start_time", "end_time", "timestamp", "timestamp_ms"):
+            value = turn.get(key)
+            if value not in {None, ""}:
+                normalized_turn[key] = value
+        frontend_turns.append(normalized_turn)
+
+    context_bundle = resolve_realtime_context_bundle(frontend_turns)
+    active_turns = context_bundle.get("turns") or context_bundle.get("active_turns") or []
+    conversation_history = [
+        {
+            "speaker": turn.get("speaker", "unknown"),
+            "text": _strip_transcript_artifacts(turn.get("text", "")),
+        }
+        for turn in active_turns
+        if _strip_transcript_artifacts(turn.get("text", ""))
+    ]
+
+    resolved_question = str(context_bundle.get("primary_question", "") or "")
+    if resolved_question and (not preserve_question_text or not question_text):
+        question_text = resolved_question
+
+    context_bundle = {
+        **context_bundle,
+        "turns": active_turns,
+        "active_turns": active_turns,
+        "historical_turns": context_bundle.get("historical_turns", []),
+        "source_turns": frontend_turns,
+        "source_turn_count": len(frontend_turns),
+        "active_turn_count": len(active_turns),
+        "historical_turn_count": len(context_bundle.get("historical_turns", [])),
+    }
+
+    return conversation_history, question_text, context_bundle
 
 
 def _are_brain_plans_seed_compatible(
@@ -2321,6 +2462,9 @@ def _normalize_live_turn_window(turns: list[dict[str, Any]], limit: int = 5) -> 
             continue
         if normalized and normalized[-1]["text"].lower() == text.lower():
             normalized[-1]["timestamp"] = turn.get("timestamp") or normalized[-1].get("timestamp")
+            timestamp_ms = turn.get("timestamp_ms")
+            if timestamp_ms is not None:
+                normalized[-1]["timestamp_ms"] = timestamp_ms
             normalized[-1]["start_time"] = normalized[-1].get("start_time") or turn.get("start_time")
             normalized[-1]["end_time"] = turn.get("end_time") or normalized[-1].get("end_time")
             continue
@@ -2329,6 +2473,7 @@ def _normalize_live_turn_window(turns: list[dict[str, Any]], limit: int = 5) -> 
                 "speaker": "interviewer",
                 "text": text,
                 "timestamp": turn.get("timestamp"),
+                "timestamp_ms": turn.get("timestamp_ms"),
                 "start_time": turn.get("start_time"),
                 "end_time": turn.get("end_time"),
             }
@@ -4740,6 +4885,274 @@ class SessionSTTStreamManager:
             window[-1] = last_turn
         return window[-limit:]
 
+    def _build_non_tracker_live_turn_window(
+        self,
+        *,
+        limit: int = 5,
+        source_limit: Optional[int] = None,
+        tracker: Any = None,
+    ) -> list[dict[str, Any]]:
+        source_limit = max(source_limit or max(limit * 3, 10), 1)
+        ui_equivalent_window = _normalize_live_turn_window(
+            self._get_ui_equivalent_transcript_window(limit=source_limit),
+            limit=limit,
+        )
+
+        tracker_window: list[dict[str, Any]] = []
+        if tracker is not None:
+            raw_turns = tracker.get_last_n_turns(limit=source_limit)
+            tracker_window = self._augment_live_turn_window_with_recent_tail(
+                raw_turns,
+                limit=source_limit,
+            )
+            tracker_window = _normalize_live_turn_window(tracker_window, limit=limit)
+
+        semantic_window = _normalize_live_turn_window(
+            self._build_live_interviewer_semantic_window(limit=source_limit),
+            limit=limit,
+        )
+
+        if ui_equivalent_window:
+            composed_ui_window = self._compose_ui_window_with_live_overlay(
+                ui_equivalent_window=ui_equivalent_window,
+                overlay_window=semantic_window,
+                limit=limit,
+            )
+            if composed_ui_window:
+                return composed_ui_window
+
+            composed_tracker_window = self._compose_ui_window_with_live_overlay(
+                ui_equivalent_window=ui_equivalent_window,
+                overlay_window=tracker_window,
+                limit=limit,
+            )
+            if self._should_prefer_tracker_window_over_ui_history(
+                ui_equivalent_window=ui_equivalent_window,
+                tracker_window=tracker_window,
+            ):
+                return tracker_window
+            if composed_tracker_window:
+                return composed_tracker_window
+
+            return ui_equivalent_window
+
+        if semantic_window and tracker_window:
+            richer_non_ui_window = self._prefer_richer_live_turn_window(
+                semantic_window,
+                tracker_window,
+                limit=limit,
+            )
+            if richer_non_ui_window:
+                return richer_non_ui_window
+        if semantic_window:
+            return semantic_window
+        if tracker_window:
+            return tracker_window
+        return []
+
+    def _get_newer_non_tracker_active_turn_window(
+        self,
+        *,
+        tracker_reference_window: list[dict[str, Any]],
+        limit: int = 5,
+        source_limit: Optional[int] = None,
+        tracker: Any = None,
+    ) -> list[dict[str, Any]]:
+        source_limit = max(source_limit or max(limit * 3, 10), 1)
+        candidate_window = self._get_newer_non_tracker_live_turn_window(
+            tracker_reference_window=tracker_reference_window,
+            limit=limit,
+            source_limit=source_limit,
+            tracker=tracker,
+        )
+        if not candidate_window:
+            return []
+
+        normalized_reference = _normalize_live_turn_window(
+            tracker_reference_window,
+            limit=source_limit,
+        )
+        if normalized_reference and self._extract_live_turn_texts(candidate_window) == self._extract_live_turn_texts(
+            normalized_reference
+        ):
+            return []
+        if normalized_reference:
+            reference_last_text = self._normalize_turn_text(
+                normalized_reference[-1].get("text") or normalized_reference[-1].get("content") or ""
+            )
+            candidate_last_text = self._normalize_turn_text(
+                candidate_window[-1].get("text") or candidate_window[-1].get("content") or ""
+            )
+            if (
+                reference_last_text
+                and candidate_last_text
+                and (
+                    self._overlay_turn_matches_base_turn(
+                        base_text=reference_last_text,
+                        overlay_text=candidate_last_text,
+                    )
+                    or self._overlay_turn_matches_base_turn(
+                        base_text=candidate_last_text,
+                        overlay_text=reference_last_text,
+                    )
+                )
+            ):
+                answer_committed = self._last_auto_suggestion_interviewer_activity_at is not None
+                if tracker is not None:
+                    try:
+                        commit_state = (
+                            tracker.get_answer_commit_state()
+                            if hasattr(tracker, "get_answer_commit_state")
+                            else {}
+                        )
+                        answer_committed = answer_committed or bool(
+                            isinstance(commit_state, dict)
+                            and commit_state.get("last_answer_committed_at") is not None
+                        )
+                    except Exception:
+                        pass
+                reference_active_turns, _ = select_realtime_active_turn_window(
+                    normalized_reference,
+                    idle_close_sec=self._live_interviewer_block_gap_sec,
+                    selected_turn_limit=source_limit,
+                )
+                reference_active_window = _normalize_live_turn_window(
+                    reference_active_turns,
+                    limit=limit,
+                )
+                if reference_active_window and len(reference_active_window) < len(normalized_reference):
+                    candidate_active_turns, _ = select_realtime_active_turn_window(
+                        candidate_window,
+                        idle_close_sec=self._live_interviewer_block_gap_sec,
+                        selected_turn_limit=source_limit,
+                    )
+                    candidate_active_window = _normalize_live_turn_window(
+                        candidate_active_turns,
+                        limit=limit,
+                    )
+                    if candidate_active_window and self._extract_live_turn_texts(
+                        candidate_active_window
+                    ) != self._extract_live_turn_texts(reference_active_window):
+                        candidate_chars = sum(len(text) for text in self._extract_live_turn_texts(candidate_active_window))
+                        reference_chars = sum(len(text) for text in self._extract_live_turn_texts(reference_active_window))
+                        return candidate_active_window if candidate_chars >= reference_chars else []
+                    return []
+                if not answer_committed:
+                    if len(candidate_window) > 1 and len(normalized_reference) > 1:
+                        candidate_chars = sum(len(text) for text in self._extract_live_turn_texts(candidate_window))
+                        reference_chars = sum(len(text) for text in self._extract_live_turn_texts(normalized_reference))
+                        return candidate_window if candidate_chars >= reference_chars else normalized_reference[-limit:]
+                    return normalized_reference[-limit:]
+                candidate_active_turns, _ = select_realtime_active_turn_window(
+                    candidate_window,
+                    idle_close_sec=self._live_interviewer_block_gap_sec,
+                    selected_turn_limit=source_limit,
+                )
+                reference_active_turns, _ = select_realtime_active_turn_window(
+                    normalized_reference,
+                    idle_close_sec=self._live_interviewer_block_gap_sec,
+                    selected_turn_limit=source_limit,
+                )
+                candidate_active_window = _normalize_live_turn_window(
+                    candidate_active_turns,
+                    limit=limit,
+                )
+                reference_active_window = _normalize_live_turn_window(
+                    reference_active_turns,
+                    limit=limit,
+                )
+                candidate_isolated = len(candidate_active_window) < len(candidate_window)
+                reference_isolated = len(reference_active_window) < len(normalized_reference)
+                if candidate_active_window and candidate_isolated and not reference_isolated:
+                    return candidate_active_window
+                if reference_active_window and reference_isolated and not candidate_isolated:
+                    return []
+                if candidate_active_window and reference_active_window:
+                    if self._extract_live_turn_texts(candidate_active_window) == self._extract_live_turn_texts(
+                        reference_active_window
+                    ):
+                        return []
+                    candidate_chars = sum(len(text) for text in self._extract_live_turn_texts(candidate_active_window))
+                    reference_chars = sum(len(text) for text in self._extract_live_turn_texts(reference_active_window))
+                    return candidate_active_window if candidate_chars >= reference_chars else []
+                if candidate_active_window:
+                    return candidate_active_window
+                return []
+
+        resolved_turn_window, _ = select_realtime_active_turn_window(
+            candidate_window,
+            idle_close_sec=self._live_interviewer_block_gap_sec,
+            selected_turn_limit=source_limit,
+        )
+        active_candidate_window = _normalize_live_turn_window(
+            resolved_turn_window or candidate_window,
+            limit=limit,
+        )
+        if not active_candidate_window:
+            return []
+
+        if normalized_reference:
+            tracker_last_order = self._live_turn_ordering_value(normalized_reference[-1])
+            active_last_order = self._live_turn_ordering_value(active_candidate_window[-1])
+            if active_last_order <= (tracker_last_order + 0.001):
+                return []
+        return active_candidate_window
+
+    def _get_newer_non_tracker_live_turn_window(
+        self,
+        *,
+        tracker_reference_window: list[dict[str, Any]],
+        limit: int = 5,
+        source_limit: Optional[int] = None,
+        tracker: Any = None,
+    ) -> list[dict[str, Any]]:
+        source_limit = max(source_limit or max(limit * 3, 10), 1)
+        candidate_window = self._build_non_tracker_live_turn_window(
+            limit=limit,
+            source_limit=source_limit,
+            tracker=tracker,
+        )
+        if not candidate_window:
+            return []
+
+        normalized_reference = _normalize_live_turn_window(
+            tracker_reference_window,
+            limit=source_limit,
+        )
+        if normalized_reference:
+            reference_last_text = self._normalize_turn_text(
+                normalized_reference[-1].get("text") or normalized_reference[-1].get("content") or ""
+            )
+            candidate_last_text = self._normalize_turn_text(
+                candidate_window[-1].get("text") or candidate_window[-1].get("content") or ""
+            )
+            if (
+                reference_last_text
+                and candidate_last_text
+                and (
+                    self._overlay_turn_matches_base_turn(
+                        base_text=reference_last_text,
+                        overlay_text=candidate_last_text,
+                    )
+                    or self._overlay_turn_matches_base_turn(
+                        base_text=candidate_last_text,
+                        overlay_text=reference_last_text,
+                    )
+                )
+            ):
+                if len(candidate_window) > 1 and len(normalized_reference) > 1:
+                    candidate_chars = sum(len(text) for text in self._extract_live_turn_texts(candidate_window))
+                    reference_chars = sum(len(text) for text in self._extract_live_turn_texts(normalized_reference))
+                    return candidate_window if candidate_chars >= reference_chars else normalized_reference[-limit:]
+                return normalized_reference[-limit:]
+
+        candidate_last_order = self._live_turn_ordering_value(candidate_window[-1])
+        if normalized_reference:
+            tracker_last_order = self._live_turn_ordering_value(normalized_reference[-1])
+            if candidate_last_order <= (tracker_last_order + 0.001):
+                return []
+        return candidate_window
+
     def _merge_current_live_interviewer_block(
         self,
         *,
@@ -4853,6 +5266,55 @@ class SessionSTTStreamManager:
         self._completed_live_interviewer_blocks = self._completed_live_interviewer_blocks[-10:]
         self._current_live_interviewer_block = None
 
+    def _freeze_live_active_ask(
+        self,
+        *,
+        tracker: Any,
+        question_fallback: str,
+        interviewer_generation: Optional[int],
+    ) -> None:
+        if tracker is None or not hasattr(tracker, "record_active_ask_frozen"):
+            return
+
+        question_key = self._normalize_turn_text(question_fallback)
+        active_turn_window, active_context_bundle = self._get_live_active_turn_window(limit=5)
+        if active_turn_window:
+            question_key = self._normalize_turn_text(
+                (active_context_bundle.get("primary_question") if isinstance(active_context_bundle, dict) else "")
+                or _build_live_brain_snapshot_text(active_turn_window)
+                or question_key
+            )
+        builder = getattr(tracker, "build_normalized_realtime_context_bundle", None)
+        if callable(builder) and not question_key:
+            try:
+                context_bundle = builder(limit=5)
+                if hasattr(context_bundle, "model_dump"):
+                    context_bundle = context_bundle.model_dump(mode="json")
+                if isinstance(context_bundle, dict):
+                    question_key = self._normalize_turn_text(
+                        context_bundle.get("primary_question") or question_key
+                    )
+            except Exception as exc:
+                print(
+                    "[AUTO][SILENCE] freeze_boundary_preview_failed "
+                    f"session_id={self._session_id} error={exc}"
+                )
+
+        if not question_key:
+            return
+
+        try:
+            tracker.record_active_ask_frozen(
+                frozen_at=time.time(),
+                question_key=question_key,
+                interviewer_generation=interviewer_generation,
+            )
+        except Exception as exc:
+            print(
+                "[AUTO][SILENCE] freeze_boundary_failed "
+                f"session_id={self._session_id} error={exc}"
+            )
+
     def _update_interviewer_turn_candidate(
         self,
         transcript_text: str,
@@ -4922,80 +5384,134 @@ class SessionSTTStreamManager:
     def _get_raw_live_turn_window(self, limit: int = 5) -> list[dict[str, Any]]:
         source_limit = max(limit * 3, 10)
         tracker = getattr(self._pipeline, "conversation_tracker", None)
+        tracker_reference_window: list[dict[str, Any]] = []
+
+        def _active_window(turn_window: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            active_turns, _ = select_realtime_active_turn_window(
+                turn_window,
+                idle_close_sec=self._live_interviewer_block_gap_sec,
+                selected_turn_limit=source_limit,
+            )
+            return _normalize_live_turn_window(active_turns, limit=limit)
+
         if tracker is not None:
+            raw_reference_turns = tracker.get_last_n_turns(limit=source_limit)
+            tracker_reference_window = self._augment_live_turn_window_with_recent_tail(
+                raw_reference_turns,
+                limit=source_limit,
+            )
+            tracker_reference_window = _normalize_live_turn_window(
+                tracker_reference_window,
+                limit=source_limit,
+            )
             tracker_context_bundle = build_realtime_context_bundle(tracker, limit=source_limit)
+            active_turn_count = int(tracker_context_bundle.get("active_turn_count") or 0)
             active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
             last_answer_committed_at = None
             if isinstance(active_ask_state, dict):
                 last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
             else:
                 last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
-            if last_answer_committed_at is not None:
-                return _normalize_live_turn_window(
-                    tracker_context_bundle.get("turns")
-                    or tracker_context_bundle.get("active_turns")
+            newer_non_tracker_window = self._get_newer_non_tracker_live_turn_window(
+                tracker_reference_window=tracker_reference_window,
+                limit=limit,
+                source_limit=source_limit,
+                tracker=tracker,
+            )
+            if newer_non_tracker_window:
+                return newer_non_tracker_window
+            if active_turn_count > 0:
+                return _active_window(
+                    tracker_context_bundle.get("active_turns")
+                    or tracker_context_bundle.get("turns")
                     or [],
-                    limit=limit,
                 )
+            if last_answer_committed_at is not None:
+                return []
 
-        ui_equivalent_window = _normalize_live_turn_window(
-            self._get_ui_equivalent_transcript_window(limit=source_limit),
+        fallback_window = self._build_non_tracker_live_turn_window(
             limit=limit,
+            source_limit=source_limit,
+            tracker=tracker,
         )
-
-        tracker_window: list[dict[str, Any]] = []
-        if tracker is not None:
-            raw_turns = tracker.get_last_n_turns(limit=source_limit)
-            tracker_window = self._augment_live_turn_window_with_recent_tail(raw_turns, limit=source_limit)
-            tracker_window = _normalize_live_turn_window(tracker_window, limit=limit)
-
-        semantic_window = _normalize_live_turn_window(
-            self._build_live_interviewer_semantic_window(limit=source_limit),
-            limit=limit,
-        )
-
-        if ui_equivalent_window:
-            composed_ui_window = self._compose_ui_window_with_live_overlay(
-                ui_equivalent_window=ui_equivalent_window,
-                overlay_window=semantic_window,
-                limit=limit,
-            )
-            if composed_ui_window:
-                return composed_ui_window[-limit:]
-
-            # Tracker remains only a last-turn fallback when semantic/live-caption
-            # cannot improve the UI-equivalent history.
-            composed_tracker_window = self._compose_ui_window_with_live_overlay(
-                ui_equivalent_window=ui_equivalent_window,
-                overlay_window=tracker_window,
-                limit=limit,
-            )
-            if self._should_prefer_tracker_window_over_ui_history(
-                ui_equivalent_window=ui_equivalent_window,
-                tracker_window=tracker_window,
-            ):
-                return tracker_window[-limit:]
-            if composed_tracker_window:
-                return composed_tracker_window[-limit:]
-
-            return ui_equivalent_window[-limit:]
-
-        if semantic_window and tracker_window:
-            richer_non_ui_window = self._prefer_richer_live_turn_window(
-                semantic_window,
-                tracker_window,
-                limit=limit,
-            )
-            if richer_non_ui_window:
-                return richer_non_ui_window[-limit:]
-        if semantic_window:
-            return semantic_window[-limit:]
-        if tracker_window:
-            return tracker_window[-limit:]
+        if fallback_window:
+            return _active_window(fallback_window)
         return []
 
+    def _get_live_active_turn_window(
+        self,
+        limit: int = 5,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        source_limit = max(limit * 3, 10)
+        tracker = getattr(self._pipeline, "conversation_tracker", None)
+        tracker_context_bundle: dict[str, Any] = {}
+        tracker_reference_window: list[dict[str, Any]] = []
+
+        if tracker is not None:
+            raw_reference_turns = tracker.get_last_n_turns(limit=source_limit)
+            tracker_reference_window = self._augment_live_turn_window_with_recent_tail(
+                raw_reference_turns,
+                limit=source_limit,
+            )
+            tracker_reference_window = _normalize_live_turn_window(
+                tracker_reference_window,
+                limit=source_limit,
+            )
+
+        if tracker is not None:
+            try:
+                tracker_context_bundle = build_realtime_context_bundle(tracker, limit=source_limit) or {}
+            except Exception as exc:
+                print(
+                    "[LIVE][BRAIN] tracker_window_failed "
+                    f"session_id={self._session_id} error={exc}"
+                )
+                tracker_context_bundle = {}
+
+            tracker_turns = (
+                tracker_context_bundle.get("active_turns")
+                or tracker_context_bundle.get("turns")
+                or []
+            )
+            active_turn_window = _normalize_live_turn_window(tracker_turns, limit=limit)
+
+            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
+            boundary_closed = False
+            if isinstance(active_ask_state, dict):
+                boundary_closed = bool(
+                    active_ask_state.get("last_active_ask_frozen_at") is not None
+                    or active_ask_state.get("last_answer_committed_at") is not None
+                    or str(active_ask_state.get("status") or "").strip().lower() == "closed"
+                )
+            newer_non_tracker_window = self._get_newer_non_tracker_active_turn_window(
+                tracker_reference_window=tracker_reference_window,
+                limit=limit,
+                source_limit=source_limit,
+                tracker=tracker,
+            )
+            if newer_non_tracker_window:
+                return newer_non_tracker_window, tracker_context_bundle
+            if active_turn_window:
+                return active_turn_window, tracker_context_bundle
+            if boundary_closed:
+                return [], tracker_context_bundle
+
+        raw_turn_window = self._get_raw_live_turn_window(limit=limit)
+        if not raw_turn_window:
+            return [], tracker_context_bundle
+
+        resolved_turn_window, resolved_bundle = select_realtime_active_turn_window(
+            raw_turn_window,
+            idle_close_sec=self._live_interviewer_block_gap_sec,
+            selected_turn_limit=source_limit,
+        )
+        if resolved_turn_window:
+            return _normalize_live_turn_window(resolved_turn_window, limit=limit), resolved_bundle
+        return _normalize_live_turn_window(raw_turn_window, limit=limit), resolved_bundle
+
     def _get_live_turn_window(self, limit: int = 5) -> list[dict[str, Any]]:
-        return _normalize_live_turn_window(self._get_raw_live_turn_window(limit=limit), limit=limit)
+        active_turn_window, _ = self._get_live_active_turn_window(limit=limit)
+        return _normalize_live_turn_window(active_turn_window, limit=limit)
 
     def _flush_pending_interviewer_candidate_for_silence(self) -> None:
         if self._interviewer_turn_candidate is None:
@@ -5573,23 +6089,7 @@ class SessionSTTStreamManager:
     def _build_live_brain_snapshot_v3(self, *, limit: int = 5) -> Optional[BrainSnapshot]:
         # The brain should think over the same consolidated conversation history
         # that Capture preserves and Emit will later send downstream.
-        raw_turn_window = self._get_raw_live_turn_window(limit=limit)
-        tracker = getattr(self._pipeline, "conversation_tracker", None)
-        if tracker is not None:
-            tracker_context_bundle = build_realtime_context_bundle(tracker, limit=max(limit * 3, 10))
-            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
-            last_answer_committed_at = None
-            if isinstance(active_ask_state, dict):
-                last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
-            else:
-                last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
-            if last_answer_committed_at is not None:
-                raw_turn_window = _normalize_live_turn_window(
-                    tracker_context_bundle.get("turns")
-                    or tracker_context_bundle.get("active_turns")
-                    or [],
-                    limit=limit,
-                )
+        raw_turn_window, _ = self._get_live_active_turn_window(limit=limit)
         if not raw_turn_window:
             return None
         turn_window = _normalize_live_turn_window(raw_turn_window, limit=limit)
@@ -6232,7 +6732,7 @@ class SessionSTTStreamManager:
             if tracker is None or planner is None:
                 return
 
-            raw_turn_window = self._get_raw_live_turn_window(limit=5)
+            raw_turn_window, _ = self._get_live_active_turn_window(limit=5)
             if not raw_turn_window:
                 return
             signature = planner.build_signature(raw_turn_window)
@@ -6425,7 +6925,7 @@ class SessionSTTStreamManager:
                     "serve_mode": brain_plan.serve_mode if brain_plan is not None else None,
                     "confidence": brain_plan.confidence if brain_plan is not None else None,
                 },
-                "semantic_blocks_window": snapshot.raw_turn_window,
+                "semantic_blocks_window": snapshot.conversation_history,
                 "request_payload": snapshot.request_payload,
                 "signature": snapshot.signature,
                 "plan_stage": "brain_v4",
@@ -6542,24 +7042,7 @@ class SessionSTTStreamManager:
         *,
         interview_config: dict[str, Any],
     ) -> Optional[LiveFrozenSnapshot]:
-        raw_turn_window = self._get_raw_live_turn_window(limit=5)
-        tracker = getattr(self._pipeline, "conversation_tracker", None)
-        tracker_context_bundle: dict[str, Any] = {}
-        if tracker is not None:
-            tracker_context_bundle = build_realtime_context_bundle(tracker, limit=5) or {}
-            active_ask_state = tracker_context_bundle.get("active_ask_state") or {}
-            last_answer_committed_at = None
-            if isinstance(active_ask_state, dict):
-                last_answer_committed_at = active_ask_state.get("last_answer_committed_at")
-            else:
-                last_answer_committed_at = getattr(active_ask_state, "last_answer_committed_at", None)
-            if last_answer_committed_at is not None:
-                raw_turn_window = _normalize_live_turn_window(
-                    tracker_context_bundle.get("turns")
-                    or tracker_context_bundle.get("active_turns")
-                    or [],
-                    limit=5,
-                )
+        raw_turn_window, tracker_context_bundle = self._get_live_active_turn_window(limit=5)
         if not raw_turn_window:
             return None
         turn_window = _normalize_live_turn_window(raw_turn_window, limit=5)
@@ -6729,6 +7212,24 @@ class SessionSTTStreamManager:
 
         return False
 
+    def _live_snapshot_requires_more_interviewer_context(
+        self,
+        *,
+        snapshot: LiveFrozenSnapshot,
+    ) -> bool:
+        brain_plan = snapshot.brain_plan
+        if brain_plan is not None:
+            if self._brain_plan_completeness_rank(brain_plan) < 3:
+                return True
+            if self._live_brain_snapshot_needs_stabilization(snapshot=snapshot):
+                return True
+
+        question_text = _normalize_live_question_text(snapshot.question_text)
+        if _looks_like_live_question_tail_fragment(question_text):
+            return True
+
+        return False
+
     def _prefer_live_brain_snapshot(
         self,
         *,
@@ -6774,12 +7275,13 @@ class SessionSTTStreamManager:
                     "[LIVE][BRAIN][V3] freeze_failed_fallbacking "
                     f"session_id={self._session_id} error={e}"
                 )
-        raw_turn_window = self._get_raw_live_turn_window(limit=5)
+        tracker = getattr(self._pipeline, "conversation_tracker", None)
+        raw_turn_window, raw_context_bundle = self._get_live_active_turn_window(limit=5)
         if not raw_turn_window:
             return None
 
         turn_window = _normalize_live_turn_window(raw_turn_window, limit=5)
-        raw_context_bundle = resolve_realtime_context_bundle(turn_window)
+        raw_context_bundle = raw_context_bundle or resolve_realtime_context_bundle(turn_window)
         fallback_question_text = raw_context_bundle.get("primary_question", "") or "\n".join(
             turn_entry.get("text", "") for turn_entry in turn_window
         ).strip()
@@ -6848,7 +7350,7 @@ class SessionSTTStreamManager:
         generation_token: Optional[int],
         tracker: Any = None,
     ) -> bool:
-        latest_raw_turn_window = self._get_raw_live_turn_window(limit=5)
+        latest_raw_turn_window, _ = self._get_live_active_turn_window(limit=5)
         if snapshot.brain_snapshot is not None:
             if generation_token is not None and generation_token != self._latest_interviewer_generation:
                 return False
@@ -7835,6 +8337,23 @@ class SessionSTTStreamManager:
             self._hard_silence_authorized = False
             return
 
+        if self._live_snapshot_requires_more_interviewer_context(snapshot=snapshot):
+            self._answer_gate_reason = "waiting_for_more_interviewer_context"
+            completeness = (
+                str(snapshot.brain_plan.question_completeness or "").strip().lower()
+                if snapshot.brain_plan is not None
+                else "unknown"
+            )
+            print(
+                "[AUTO][SILENCE] skip_trigger "
+                f"session_id={self._session_id} "
+                "reason=waiting_for_more_interviewer_context "
+                f"question_completeness={completeness or 'unknown'} "
+                f"question_source={snapshot.question_source} "
+                f"question_text='{snapshot.question_text[:180]}'"
+            )
+            return
+
         if not snapshot.question_text:
             self._answer_gate_reason = "no_question_text"
             print(
@@ -7864,10 +8383,9 @@ class SessionSTTStreamManager:
                 f"remaining_cooldown={remaining_cooldown:.1f}s"
             )
             return
-        
+
         # Record that we're about to trigger
-        self._silence_detector.record_trigger()
-        self._answer_gate_reason = "triggering_suggestion"
+        self._answer_gate_reason = "generating_suggestion"
         trigger_activity_epoch = self._interviewer_activity_epoch
         self._cancel_suggestion_debounce()
         self._cancel_hard_silence_gate()
@@ -7996,6 +8514,17 @@ class SessionSTTStreamManager:
             fallback_used = debug_info.get("fallback_used")
             if fallback_used is None:
                 fallback_used = path_used.startswith("writer_")
+
+            self._freeze_live_active_ask(
+                tracker=tracker,
+                question_fallback=self._normalize_turn_text(turn.text or ""),
+                interviewer_generation=(
+                    generation_token if generation_token is not None else self._latest_interviewer_generation
+                ),
+            )
+            self._finalize_current_live_interviewer_block(reason="suggestion_triggered")
+            self._silence_detector.record_trigger()
+            self._answer_gate_reason = "triggering_suggestion"
             
             suggestion_payload = {
                 "type": "suggestion",
@@ -8249,7 +8778,7 @@ class SessionSTTStreamManager:
                         else ""
                     ),
                     "question_stabilization_wait_ms": stabilization_wait_ms,
-                    "semantic_blocks_window": snapshot.raw_turn_window,
+                    "semantic_blocks_window": snapshot.conversation_history,
                     "latest_display_caption": latest_display_caption or None,
                     "pending_interviewer_candidate": pending_interviewer_candidate or None,
                     "request_payload": snapshot.request_payload,
@@ -8417,7 +8946,6 @@ class SessionSTTStreamManager:
                 session_id=self._session_id,
             )
             self._mark_auto_suggestion_served(snapshot=snapshot)
-            self._finalize_current_live_interviewer_block(reason="suggestion_emitted")
             
             print(
                 "[AUTO][SILENCE] suggestion_emitted "
@@ -9032,22 +9560,17 @@ async def suggest_response(request: SuggestRequest):
     
     if frontend_conversation_history and isinstance(frontend_conversation_history, list):
         print(f"[/api/suggest] Using conversation_history from frontend: {len(frontend_conversation_history)} turns")
-        conversation_history_from_session = [
-            {
-                "speaker": turn.get("speaker", "unknown"),
-                "text": _strip_transcript_artifacts(turn.get("text", "")),
-            }
-            for turn in frontend_conversation_history
-            if _strip_transcript_artifacts(turn.get("text", ""))
-        ]
-        print(f"[/api/suggest] Loaded {len(conversation_history_from_session)} turns from frontend request")
+        conversation_history_from_session, question_text, frontend_context_bundle = _build_frontend_suggest_context(
+            frontend_conversation_history=frontend_conversation_history,
+            question_text=question_text,
+            preserve_question_text=preserve_question_text,
+        )
+        print(f"[/api/suggest] Loaded {len(conversation_history_from_session)} active turns from frontend request")
         # Log each turn for debugging
         for i, turn in enumerate(conversation_history_from_session):
             print(f"[/api/suggest][DEBUG] Frontend turn {i}: speaker={turn['speaker']}, text='{turn['text'][:50]}...'")
-        frontend_context_bundle = resolve_realtime_context_bundle(conversation_history_from_session)
         resolved_question = frontend_context_bundle.get("primary_question", "")
-        if resolved_question and (not preserve_question_text or not question_text):
-            question_text = resolved_question
+        if resolved_question:
             print(
                 f"[/api/suggest] Resolved primary question from frontend history "
                 f"source={frontend_context_bundle.get('primary_question_source')} "
@@ -9060,19 +9583,36 @@ async def suggest_response(request: SuggestRequest):
             active_pipeline = _active_pipelines.get(session_id)
             if active_pipeline and hasattr(active_pipeline, 'conversation_tracker'):
                 print(f"[/api/suggest] Found active pipeline for session {session_id}")
-                recent_turns = active_pipeline.conversation_tracker.get_last_n_turns(limit=history_count)
-                print(f"[/api/suggest] Got {len(recent_turns)} turns from active tracker")
+                conversation_history_from_session, resolved_question_text, tracker_context_bundle = _build_active_pipeline_suggest_context(
+                    conversation_tracker=active_pipeline.conversation_tracker,
+                    history_count=history_count,
+                    question_text=question_text,
+                    preserve_question_text=preserve_question_text,
+                )
+                recent_turns = conversation_history_from_session
+                recent_exchanges = [
+                    {
+                        "interviewer_utterance": turn.get("text", ""),
+                        "candidate_response": "",
+                        "timestamp": turn.get("timestamp", datetime.now().isoformat()),
+                    }
+                    for turn in recent_turns
+                ]
+                print(f"[/api/suggest] Got {len(recent_turns)} turns from normalized active tracker bundle")
+                for i, turn in enumerate(recent_turns):
+                    print(
+                        f"[/api/suggest][DEBUG] Active turn {i}: "
+                        f"speaker={turn.get('speaker', 'unknown')} "
+                        f"text='{str(turn.get('text', ''))[:50]}...'"
+                    )
+                if resolved_question_text and resolved_question_text != question_text:
+                    question_text = resolved_question_text
+                    print(
+                        f"[/api/suggest] Resolved primary question from active tracker "
+                        f"source={tracker_context_bundle.get('primary_question_source')} "
+                        f"question='{question_text[:120]}...'"
+                    )
                 
-                for turn in recent_turns:
-                    recent_exchanges.append({
-                        'interviewer_utterance': turn.get('text', ''),
-                        'candidate_response': '',  # Not available in tracker turns
-                        'timestamp': turn.get('timestamp', datetime.now().isoformat())
-                    })
-                
-                if recent_exchanges:
-                    print(f"[/api/suggest] Using {len(recent_exchanges)} exchanges from in-memory tracker")
-            
             # OPTION 2: Fallback to database if no active pipeline or no turns in tracker
             if not recent_exchanges:
                 print(f"[/api/suggest] No active pipeline, querying database...")
@@ -9088,20 +9628,22 @@ async def suggest_response(request: SuggestRequest):
                 print(f"[/api/suggest][DEBUG] Exchange {i}: utterance='{utterance[:50] if utterance else 'EMPTY'}...'")
             
             if recent_exchanges:
-                # Format exchanges as conversation history (HR-2: last 5 turns)
-                conversation_history_from_session = [
-                    {
-                        "speaker": "interviewer",
-                        "text": exchange.get("interviewer_utterance", ""),
-                    }
-                    for exchange in recent_exchanges
-                ]
-                # Use most recent interviewer's question as question_text if not provided
-                if not question_text and recent_exchanges:
-                    last_exchange = recent_exchanges[-1]
-                    question_text = last_exchange.get("interviewer_utterance", "")
-                    print(f"[/api/suggest] Extracted question from history: '{question_text[:50]}...'")
-                print(f"[/api/suggest] Loaded {len(conversation_history_from_session)} turns from session {session_id}")
+                conversation_history_from_session, resolved_question_text, history_context_bundle = _build_history_based_suggest_context(
+                    recent_exchanges=recent_exchanges,
+                    question_text=question_text,
+                    preserve_question_text=preserve_question_text,
+                )
+                if resolved_question_text and resolved_question_text != question_text:
+                    question_text = resolved_question_text
+                    print(
+                        f"[/api/suggest] Resolved primary question from history "
+                        f"source={history_context_bundle.get('primary_question_source')} "
+                        f"question='{question_text[:120]}...'"
+                    )
+                print(
+                    f"[/api/suggest] Loaded {len(conversation_history_from_session)} active turns "
+                    f"from session {session_id}"
+                )
         except Exception as e:
             print(f"[/api/suggest] Warning: Could not load conversation history: {e}")
     

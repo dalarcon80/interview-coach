@@ -118,7 +118,7 @@ export interface SuggestionRequest {
   history_count?: number;
   // NEW: Length control for coach responses (50-500 words)
   max_words?: number;
-  conversation_history?: Array<{ speaker: string; text: string }>;
+  conversation_history?: Array<{ speaker: string; text: string; timestamp?: number; timestamp_ms?: number }>;
   preserve_question_text?: boolean;
 }
 

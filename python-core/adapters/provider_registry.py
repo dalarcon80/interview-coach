@@ -10,6 +10,9 @@ from typing import Optional
 from contracts.models import ProviderConfig, ProviderRegistry, ProviderType
 
 
+DEFAULT_CONFIG_PATH = "config/providers.yaml"
+
+
 class ProviderRegistryService:
     """
     Manages provider resolution via aliases.
@@ -20,15 +23,16 @@ class ProviderRegistryService:
     """
     
     def __init__(self, config_path: Optional[str] = None):
-        self.config_path = config_path or "config/providers.yaml"
+        self.config_path = config_path or DEFAULT_CONFIG_PATH
         self._registry: Optional[ProviderRegistry] = None
         self._load_config()
     
     def _load_config(self) -> None:
         """Load providers.yaml configuration"""
-        config_file = Path(self.config_path)
+        config_file = self._resolve_config_file(self.config_path)
         
         if config_file.exists():
+            self.config_path = str(config_file)
             with open(config_file, "r") as f:
                 data = yaml.safe_load(f) or {}
             
@@ -43,6 +47,31 @@ class ProviderRegistryService:
         else:
             # Default configuration
             self._registry = self._create_default_registry()
+
+    def _resolve_config_file(self, config_path: str) -> Path:
+        """Resolve the default providers file from the repo root, independent of cwd."""
+        config_file = Path(config_path).expanduser()
+        if config_file.exists() or config_file.is_absolute():
+            return config_file
+
+        if config_file.as_posix() != DEFAULT_CONFIG_PATH:
+            return config_file
+
+        search_roots: list[Path] = []
+        cwd = Path.cwd().resolve()
+        search_roots.extend([cwd, *cwd.parents])
+        module_path = Path(__file__).resolve()
+        search_roots.extend([module_path.parent, *module_path.parents])
+
+        seen: set[Path] = set()
+        for root in search_roots:
+            if root in seen:
+                continue
+            seen.add(root)
+            candidate = root / config_file
+            if candidate.exists():
+                return candidate
+        return config_file
     
     def _parse_providers(self, data: dict) -> dict[str, ProviderConfig]:
         """Parse provider configurations from YAML data"""

@@ -352,7 +352,7 @@ async def test_planner_recovers_with_direct_draft_when_json_plan_fails():
     assert adapter.calls == 1
 
 
-def test_planner_prefers_runtime_provider_when_fast_alias_is_local(monkeypatch):
+def test_planner_uses_fast_alias_when_runtime_main_is_remote(monkeypatch):
     planner = LiveQuestionPlanner(AskNormalizer())
 
     monkeypatch.setattr(
@@ -370,7 +370,7 @@ def test_planner_prefers_runtime_provider_when_fast_alias_is_local(monkeypatch):
     class _RegistryStub:
         def get_llm_config(self, alias: str):
             assert alias == "fast"
-            return SimpleNamespace(provider="ollama", model="llama3.2:1b")
+            return SimpleNamespace(provider="ollama", model="llama3.2:1b", config={})
 
     monkeypatch.setattr(
         "adapters.provider_registry.get_registry",
@@ -380,6 +380,5 @@ def test_planner_prefers_runtime_provider_when_fast_alias_is_local(monkeypatch):
     adapter = planner._get_planner_adapter()
 
     assert adapter is not None
-    assert adapter.__class__.__name__ == "AnthropicLLMAdapter"
-    assert getattr(adapter, "api_key", "") == "runtime-anthropic-key"
-    assert getattr(adapter, "model", "") == "claude-haiku-4-5-20251001"
+    assert adapter.__class__.__name__ == "OllamaLLMAdapter"
+    assert getattr(adapter, "model", "") == "llama3.2:1b"

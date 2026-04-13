@@ -55,6 +55,9 @@ class TrackerState:
     latest_live_prepared_context: Optional[LivePreparedContext] = None
     latest_active_ask_state: Optional[ActiveAskState] = None
     latest_normalized_realtime_context: Optional[NormalizedRealtimeContextBundle] = None
+    last_active_ask_frozen_at: Optional[float] = None
+    last_active_ask_frozen_question_key: str = ""
+    last_active_ask_frozen_interviewer_generation: Optional[int] = None
     last_answer_committed_at: Optional[float] = None
     last_answer_committed_question_key: str = ""
     last_answer_committed_interviewer_generation: Optional[int] = None
@@ -286,6 +289,39 @@ class ConversationTracker:
         with self._sync_lock:
             return self.state.latest_active_ask_state
 
+    def record_active_ask_frozen(
+        self,
+        *,
+        frozen_at: float,
+        question_key: str,
+        interviewer_generation: Optional[int] = None,
+    ) -> None:
+        with self._sync_lock:
+            normalized_question_key = self._normalize_text(question_key).lower()
+            self.state.last_active_ask_frozen_at = float(frozen_at)
+            self.state.last_active_ask_frozen_question_key = normalized_question_key
+            self.state.last_active_ask_frozen_interviewer_generation = (
+                int(interviewer_generation)
+                if isinstance(interviewer_generation, int)
+                else interviewer_generation
+            )
+            if self.state.latest_active_ask_state is not None:
+                self.state.latest_active_ask_state = self.state.latest_active_ask_state.model_copy(
+                    update={
+                        "status": "closed",
+                        "last_active_ask_frozen_at": self.state.last_active_ask_frozen_at,
+                        "last_active_ask_frozen_question_key": normalized_question_key,
+                        "last_active_ask_frozen_interviewer_generation": (
+                            self.state.last_active_ask_frozen_interviewer_generation
+                        ),
+                        "updated_at": float(frozen_at),
+                    }
+                )
+            if self.state.latest_normalized_realtime_context is not None:
+                self.state.latest_normalized_realtime_context = self.state.latest_normalized_realtime_context.model_copy(
+                    update={"active_ask_state": self.state.latest_active_ask_state}
+                )
+
     def cache_normalized_realtime_context(
         self,
         normalized_context: Optional[NormalizedRealtimeContextBundle],
@@ -373,99 +409,20 @@ class ConversationTracker:
         limit: int = 5,
     ) -> NormalizedRealtimeContextBundle:
         source_turns = list(turns if turns is not None else self.get_last_n_turns(limit=limit))
-        source_turn_count = len(source_turns)
-        commit_at = self.state.last_answer_committed_at
-
-        commit_boundary_index = 0
-        if commit_at is not None:
-            commit_boundary_index = source_turn_count
-            for idx, turn in enumerate(source_turns):
-                turn_time = self._turn_event_time(turn)
-                if turn_time is not None and turn_time > float(commit_at):
-                    commit_boundary_index = idx
-                    break
-
-        post_commit_turns = source_turns[commit_boundary_index:]
-        active_block_start: Optional[int] = None
-        active_block_end = len(post_commit_turns)
-        interviewer_block_seen = False
-        for idx in range(len(post_commit_turns) - 1, -1, -1):
-            text = str(post_commit_turns[idx].get("text", "")).strip()
-            if not text:
-                continue
-            speaker = post_commit_turns[idx].get("speaker")
-            if speaker == "interviewer":
-                interviewer_block_seen = True
-                active_block_start = idx
-                continue
-            if interviewer_block_seen:
-                break
-            active_block_end = idx
-
-        active_turns: list[dict[str, Any]] = []
-        active_turn_start_index: Optional[int] = None
-        active_turn_end_index: Optional[int] = None
-        if interviewer_block_seen and active_block_start is not None:
-            active_turn_start_index = commit_boundary_index + active_block_start
-            active_turn_end_index = commit_boundary_index + active_block_end
-            active_turns = list(source_turns[active_turn_start_index:active_turn_end_index])
-
-        if active_turn_start_index is not None and active_turn_end_index is not None:
-            historical_turns = list(source_turns[:active_turn_start_index]) + list(source_turns[active_turn_end_index:])
-        else:
-            historical_turns = list(source_turns)
-
         from pipeline.silence_detector import resolve_realtime_context_bundle
 
-        active_context = resolve_realtime_context_bundle(active_turns)
-        primary_question = str(active_context.get("primary_question", "") or "")
-        primary_question_index = active_context.get("primary_question_index")
-        interviewer_question_index = active_context.get("interviewer_question_index")
-        primary_question_source = str(active_context.get("primary_question_source", "none") or "none")
-        carry_forward_reason = ""
-
-        if commit_at is not None:
-            if active_turns and primary_question:
-                primary_question_source = "post_commit_interviewer_turns"
-                carry_forward_reason = "new_interviewer_after_committed_answer"
-            else:
-                primary_question_source = "none"
-                primary_question = ""
-                primary_question_index = None
-                interviewer_question_index = None
-                carry_forward_reason = "awaiting_new_interviewer_after_committed_answer"
-
-        active_ask_state = self._build_closed_active_ask_state(
-            active_ask_state=self.state.latest_active_ask_state,
-            primary_question=primary_question,
-            primary_question_source=primary_question_source,
-            carry_forward_reason=carry_forward_reason,
-            last_answer_committed_at=commit_at,
-            last_answer_committed_question_key=self.state.last_answer_committed_question_key,
-            last_answer_committed_interviewer_generation=self.state.last_answer_committed_interviewer_generation,
-            interviewer_generation=int(self.state.last_answer_committed_interviewer_generation or 0),
-            source_turn_start_index=active_turn_start_index,
-            source_turn_end_index=(active_turn_end_index - 1) if active_turn_end_index is not None and active_turns else None,
-            status="open" if active_turns else ("closed" if commit_at is not None else "open"),
-        )
-
-        source_signature = self._turn_signature(source_turns)
-        normalized_context = NormalizedRealtimeContextBundle(
-            turns=active_turns,
-            active_turns=active_turns,
-            historical_turns=historical_turns,
-            source_turns=source_turns,
-            context_turns=len(active_turns),
-            source_turn_count=source_turn_count,
-            active_turn_count=len(active_turns),
-            historical_turn_count=len(historical_turns),
-            primary_question=primary_question,
-            primary_question_index=primary_question_index,
-            interviewer_question_index=interviewer_question_index,
-            primary_question_source=primary_question_source,
-            carry_forward_reason=carry_forward_reason,
-            source_signature=source_signature,
-            active_ask_state=active_ask_state,
+        normalized_context = NormalizedRealtimeContextBundle.model_validate(
+            resolve_realtime_context_bundle(
+                source_turns,
+                last_answer_committed_at=self.state.last_answer_committed_at,
+                last_answer_committed_question_key=self.state.last_answer_committed_question_key,
+                current_interviewer_generation=self.state.last_answer_committed_interviewer_generation,
+                frozen_at=self.state.last_active_ask_frozen_at,
+                frozen_question_key=self.state.last_active_ask_frozen_question_key,
+                frozen_interviewer_generation=self.state.last_active_ask_frozen_interviewer_generation,
+                idle_close_sec=self.LONG_PAUSE_SEC,
+                selected_turn_limit=limit,
+            )
         )
         self.cache_normalized_realtime_context(normalized_context)
         return normalized_context

@@ -371,7 +371,7 @@ _ALL_QUESTION_LIKE_LEADS = tuple(dict.fromkeys([*_QUESTION_LEADS, *_REQUEST_INTE
 @dataclass
 class LiveBrainServiceConfig:
     llm_alias: str = "fast"
-    llm_timeout_sec: float = 3.4
+    llm_timeout_sec: float = 6.5
     llm_temperature: float = 0.1
     llm_max_tokens: int = 480
     stable_quiet_ms: int = 300
@@ -7695,6 +7695,9 @@ JSON schema:
 
         payload = cls._extract_json_payload(text)
         if not payload:
+            line_based = cls._parse_line_based_payload(text)
+            if isinstance(line_based, dict) and line_based:
+                return cls._to_json_compatible(line_based), ""
             return None, "json_not_found"
 
         parsed = cls._parse_with_json(payload)
@@ -7934,6 +7937,53 @@ JSON schema:
         runtime_enabled = bool(runtime_llm.get("enabled"))
         runtime_api_key = runtime_llm.get("api_key") or ""
         runtime_model = str(runtime_llm.get("model") or "").strip()
+
+        try:
+            from adapters.provider_registry import get_registry
+
+            cfg = get_registry().get_llm_config(alias=alias)
+            configured_provider = str(cfg.provider or "").strip().lower()
+            configured_model = str(cfg.model or "").strip()
+            configured_config = dict(cfg.config or {})
+
+            if configured_provider == "ollama":
+                return OllamaLLMAdapter(
+                    model=configured_model or ("llama3.2:1b" if alias == "fast" else "qwen3.5:latest"),
+                    base_url=(
+                        configured_config.get("base_url")
+                        or runtime_llm.get("base_url")
+                        or os.getenv("OLLAMA_BASE_URL")
+                        or "http://localhost:11434"
+                    ),
+                )
+            if configured_provider == "anthropic":
+                api_key = (
+                    runtime_api_key
+                    if runtime_enabled and runtime_provider == "anthropic"
+                    else os.getenv("ANTHROPIC_API_KEY")
+                )
+                if api_key:
+                    adapter = AnthropicLLMAdapter(
+                        model=configured_model or runtime_model or "claude-haiku-4-5-20251001"
+                    )
+                    adapter.api_key = api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+            if configured_provider == "openai":
+                api_key = (
+                    runtime_api_key
+                    if runtime_enabled and runtime_provider == "openai"
+                    else os.getenv("OPENAI_API_KEY")
+                )
+                if api_key:
+                    adapter = OpenAILLMAdapter(model=configured_model or runtime_model or "gpt-4o-mini")
+                    adapter.api_key = api_key
+                    return adapter
+                self.last_llm_failure_kind = "api_key_missing"
+                return None
+        except Exception as exc:
+            print(f"[LiveBrainService] fast adapter registry resolution fallback: {exc}")
 
         if runtime_enabled:
             if runtime_provider == "anthropic":

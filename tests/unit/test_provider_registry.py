@@ -4,6 +4,7 @@ Tests for alias resolution and environment variable overrides
 """
 import os
 import pytest
+from pathlib import Path
 from unittest.mock import patch
 
 from adapters.provider_registry import (
@@ -136,7 +137,11 @@ class TestProviderConfigFromFile:
         
         # Check LLM config
         llm_config = registry.get_llm_config("main")
-        assert llm_config.provider == "anthropic"
+        assert llm_config.provider == "ollama"
+
+        fast_llm_config = registry.get_llm_config("fast")
+        assert fast_llm_config.provider == "anthropic"
+        assert fast_llm_config.model == "claude-haiku-4-5-20251001"
         
         # Check STT config
         stt_config = registry.get_stt_config("primary")
@@ -145,3 +150,15 @@ class TestProviderConfigFromFile:
         # Check embedding config
         embedding_config = registry.get_embedding_config("primary")
         assert embedding_config.provider == "openai"
+
+    def test_default_config_resolves_from_python_core_cwd(self, monkeypatch):
+        """Test default providers.yaml resolution is independent of process cwd."""
+        repo_root = Path(__file__).resolve().parents[2]
+        monkeypatch.chdir(repo_root / "python-core")
+
+        registry = ProviderRegistryService()
+
+        assert Path(registry.config_path).resolve() == repo_root / "config" / "providers.yaml"
+        fast_llm_config = registry.get_llm_config("fast")
+        assert fast_llm_config.provider == "anthropic"
+        assert fast_llm_config.model == "claude-haiku-4-5-20251001"

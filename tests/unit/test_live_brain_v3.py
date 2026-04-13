@@ -2,12 +2,13 @@ import asyncio
 import contextlib
 import time
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from api.server import LiveBrainWarmResult, LiveFrozenSnapshot, SessionSTTStreamManager
-from adapters.llm_adapter import AnthropicLLMAdapter
+from adapters.llm_adapter import AnthropicLLMAdapter, OllamaLLMAdapter
 from contracts.models import BrainPlan, BrainSnapshot, CompactEvidencePack, ResponseRequirement
 from pipeline.steps.live_brain_service import LiveBrainService
 from pipeline.steps.live_evidence_packer import LiveEvidencePacker
@@ -1194,7 +1195,7 @@ def test_live_brain_service_normalizes_contract_fields_from_llm_payload():
     assert plan.serve_mode == "finalize_from_draft"
 
 
-def test_live_brain_service_rejects_non_json_llm_payloads():
+def test_live_brain_service_accepts_line_based_llm_payloads_without_json_braces():
     parsed, failure_kind = LiveBrainService._parse_llm_payload(
         """
         asks:
@@ -1206,12 +1207,15 @@ def test_live_brain_service_rejects_non_json_llm_payloads():
         """
     )
 
-    assert parsed is None
-    assert failure_kind == "json_not_found"
+    assert parsed is not None
+    assert failure_kind == ""
+    assert parsed["asks"][0].startswith("Tell me about your experience")
+    assert parsed["question_completeness"] == "complete"
+    assert parsed["question_type"] == "business"
 
 
 @pytest.mark.asyncio
-async def test_live_brain_service_falls_back_safely_when_llm_returns_non_json_payload():
+async def test_live_brain_service_uses_line_based_payload_when_json_braces_are_missing():
     service = LiveBrainService()
     adapter = MagicMock()
     adapter.generate = AsyncMock(
@@ -1257,11 +1261,11 @@ async def test_live_brain_service_falls_back_safely_when_llm_returns_non_json_pa
         interview_config=_build_live_pipeline_stub().session_state.interview_config,
     )
 
-    assert plan.plan_source == "safe_fallback"
+    assert plan.plan_source == "llm_fast"
     assert plan.question_completeness == "complete"
-    assert len(plan.ordered_asks) >= 1
+    assert len(plan.ordered_asks) >= 4
     assert "building from 0" in plan.ordered_asks[0].lower()
-    assert service.last_llm_failure_kind == "json_not_found"
+    assert service.last_llm_failure_kind == ""
 
 
 def test_live_brain_plan_hash_stays_stable_when_only_question_wording_is_enriched():
@@ -2311,9 +2315,18 @@ def test_live_finalizer_resolve_adapter_uses_runtime_main_model(monkeypatch: pyt
     assert adapter.api_key == "test-key"
 
 
-def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
+def test_live_brain_service_resolve_adapter_uses_fast_alias_over_runtime_main_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "env-anthropic-key")
+
+    class _RegistryStub:
+        def get_llm_config(self, alias: str):
+            assert alias == "fast"
+            return SimpleNamespace(
+                provider="ollama",
+                model="llama3.2:1b",
+                config={"base_url": "http://localhost:11434"},
+            )
 
     with patch(
         "pipeline.steps.live_brain_service._get_runtime_config",
@@ -2325,12 +2338,15 @@ def test_live_brain_service_resolve_adapter_uses_runtime_settings_model(monkeypa
                 "enabled": True,
             }
         },
+    ), patch(
+        "adapters.provider_registry.get_registry",
+        return_value=_RegistryStub(),
     ):
         adapter = LiveBrainService()._resolve_adapter(alias="fast")
 
-    assert isinstance(adapter, AnthropicLLMAdapter)
-    assert adapter.model == "claude-sonnet-4-6"
-    assert adapter.api_key == "runtime-anthropic-key"
+    assert isinstance(adapter, OllamaLLMAdapter)
+    assert adapter.model == "llama3.2:1b"
+    assert adapter.base_url == "http://localhost:11434"
 
 
 def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.MonkeyPatch):
@@ -2352,7 +2368,7 @@ def test_live_question_planner_uses_runtime_settings_model(monkeypatch: pytest.M
         adapter = planner._get_planner_adapter()
 
     assert isinstance(adapter, AnthropicLLMAdapter)
-    assert adapter.model == "claude-sonnet-4-6"
+    assert adapter.model == "claude-haiku-4-5-20251001"
     assert adapter.api_key == "runtime-anthropic-key"
 
 
