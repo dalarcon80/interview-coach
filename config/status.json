@@ -105,8 +105,18 @@
     "adr_001": "docs/adr/ADR-001-brain-emit-separation.md",
     "adr_002": "docs/adr/ADR-002-stt-provider-strategy.md",
     "adr_003": "docs/adr/ADR-003-event-sourced-persistence.md",
+    "adr_004": "docs/adr/ADR-004-secret-and-profile-storage.md",
     "plan_master": ".kilo/plans/1776898569349-lucky-river.md"
   },
+  "security_incidents": [
+    {
+      "id": "SEC-2026-04-22-01",
+      "date": "2026-04-22",
+      "summary": "Anthropic API keys detected in stash patch files during F1-T10 push; GitHub secret scanning blocked. Patches removed from repo; keys must be rotated.",
+      "outcome": "ADR-004 (secret management) authored. Secrets target moved to OS keychain / encrypted DB row, never JSON on disk.",
+      "followups": ["F2-T17","F2-T18","F2-T19","F2-T20"]
+    }
+  ],
   "r1_align_product_truth_01": {
     "description": "Align authoritative files to consistent product truth - system audio is primary, microphone is secondary/optional, full_response is primary artifact",
     "status": "completed",

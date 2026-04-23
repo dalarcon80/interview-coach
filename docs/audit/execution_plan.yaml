@@ -223,6 +223,24 @@ phases:
         title: tests/integration/test_outbox_resilience.py
         owner: backend
         acceptance: "DB down -> NDJSON -> DB up -> drained; zero lost events"
+      - id: F2-T17
+        title: persistence/secret_store.py with backends
+        owner: backend
+        acceptance: "OS keychain backend (macOS/Linux/Windows) + encrypted-DB fallback + dev-file fallback all working; unit tests for each"
+        notes: "Per ADR-004. Dev-file uses chmod 0600 outside repo."
+      - id: F2-T18
+        title: Migrate api_key fields to secret_store
+        owner: backend
+        acceptance: "RuntimeConfig api_key fields are write-only on /api/runtime-config; backend resolves via secret_store at request time; UI prompts and stores securely"
+      - id: F2-T19
+        title: scripts/setup_secrets.sh onboarding
+        owner: ops
+        acceptance: "New dev can run the script, paste their keys, and the backend consumes them on next start without editing any JSON"
+      - id: F2-T20
+        title: Remove api_key from RuntimeConfig response payloads
+        owner: backend
+        acceptance: "GET /api/runtime-config never returns api_key; Pydantic model marks api_key as write-only"
+        notes: "Closes the direct cause of F1-T10 incident (keys leaked via stash patches)."
 
   - id: F3
     name: Break god-objects
