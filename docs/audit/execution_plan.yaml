@@ -1,0 +1,413 @@
+version: 1
+generated_at: "2026-04-22"
+project: interview-coach
+architecture_version: "4.0.0-draft"
+canonical_validation_target: tauri-desktop
+
+owners:
+  architect: dalarcon
+  backend: dalarcon
+  frontend: dalarcon
+  ops: dalarcon
+
+phases:
+  - id: F0
+    name: Audit artifacts
+    status: completed
+    started_at: "2026-04-22"
+    completed_at: "2026-04-22"
+    tasks:
+      - id: F0-T1
+        title: Create AUDIT_REPORT.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/AUDIT_REPORT.md exists and covers CR-1..CR-7 with evidence"
+        verification: "test -f docs/audit/AUDIT_REPORT.md"
+      - id: F0-T2
+        title: Create BRANCH_FORENSICS.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/BRANCH_FORENSICS.md lists 39+ branches with action"
+        verification: "test -f docs/audit/BRANCH_FORENSICS.md"
+      - id: F0-T3
+        title: Create TARGET_ARCHITECTURE.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/TARGET_ARCHITECTURE.md has module map + contracts v2 shapes"
+        verification: "test -f docs/audit/TARGET_ARCHITECTURE.md"
+      - id: F0-T4
+        title: Create LIVE_PIPELINE_REDESIGN.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/LIVE_PIPELINE_REDESIGN.md defines EoT detector, IntentTracker, emit gate"
+        verification: "test -f docs/audit/LIVE_PIPELINE_REDESIGN.md"
+      - id: F0-T5
+        title: Create DATA_MODEL_REDESIGN.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/DATA_MODEL_REDESIGN.md includes Alembic plan + all new tables"
+        verification: "test -f docs/audit/DATA_MODEL_REDESIGN.md"
+      - id: F0-T6
+        title: Create IMPLEMENTATION_PLAN.md
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/IMPLEMENTATION_PLAN.md has phases F0..F6 with tasks"
+        verification: "test -f docs/audit/IMPLEMENTATION_PLAN.md"
+      - id: F0-T7
+        title: Create execution_plan.yaml
+        owner: architect
+        status: completed
+        acceptance: "docs/audit/execution_plan.yaml parses as valid YAML"
+        verification: "python -c 'import yaml; yaml.safe_load(open(\"docs/audit/execution_plan.yaml\"))'"
+      - id: F0-T8
+        title: Update config/status.json
+        owner: architect
+        status: completed
+        acceptance: "config/status.json reflects architecture 4.0.0-draft, phases F0..F6"
+        verification: "python -c 'import json; d=json.load(open(\"config/status.json\")); assert d[\"architecture_version\"].startswith(\"4.0\")'"
+      - id: F0-T9
+        title: Create ADR-001 brain/emit separation
+        owner: architect
+        status: completed
+        acceptance: "docs/adr/ADR-001-brain-emit-separation.md exists"
+        verification: "test -f docs/adr/ADR-001-brain-emit-separation.md"
+      - id: F0-T10
+        title: Create ADR-002 STT strategy
+        owner: architect
+        status: completed
+        acceptance: "docs/adr/ADR-002-stt-provider-strategy.md exists"
+        verification: "test -f docs/adr/ADR-002-stt-provider-strategy.md"
+      - id: F0-T11
+        title: Create ADR-003 event-sourced persistence
+        owner: architect
+        status: completed
+        acceptance: "docs/adr/ADR-003-event-sourced-persistence.md exists"
+        verification: "test -f docs/adr/ADR-003-event-sourced-persistence.md"
+
+  - id: F1
+    name: Repo hygiene + branch consolidation
+    status: pending
+    depends_on: [F0]
+    tasks:
+      - id: F1-T1
+        title: Harden .gitignore + add .gitattributes
+        owner: ops
+        acceptance: ".gitignore ignores DS_Store, __pycache__, *.pyc, .venv, dist, .next, .pytest_cache, node_modules, tsconfig.tsbuildinfo"
+        verification: "grep -qE '\\.DS_Store' .gitignore && grep -qE '__pycache__' .gitignore && grep -qE '\\.venv' .gitignore && grep -qE 'tauri-app/dist' .gitignore"
+        rollback: "git checkout HEAD~1 -- .gitignore .gitattributes"
+      - id: F1-T2
+        title: Tag safety net
+        owner: ops
+        acceptance: "archive/main-before-consolidation-2026-04-22 tag exists and is pushed"
+        verification: "git tag --list archive/main-before-consolidation-2026-04-22 | grep -q archive"
+        commands:
+          - "git tag archive/main-before-consolidation-2026-04-22 main"
+          - "git push origin archive/main-before-consolidation-2026-04-22"
+      - id: F1-T3
+        title: Clean working tree (stage 1)
+        owner: ops
+        acceptance: "git status shows no untracked loose files at root"
+        verification: "git status --porcelain=v1 | grep -vE '^(M|A|D) ' | wc -l"
+      - id: F1-T4
+        title: Create consolidation/v2 branch
+        owner: ops
+        acceptance: "Branch consolidation/v2 exists from main"
+        verification: "git rev-parse --verify consolidation/v2"
+      - id: F1-T5
+        title: Cherry-pick ordered
+        owner: backend
+        acceptance: "cefc9c9, consolidated runtime config commit, aae81ce9 (by-file), extracted harden changes all applied"
+        verification: "git log --oneline consolidation/v2 ^main | wc -l"
+        notes: "Cherry-pick 9d00f486 by patch to avoid binary contamination"
+      - id: F1-T6
+        title: Run pytest
+        owner: backend
+        acceptance: "pytest tests/ -q exits 0"
+        verification: "pytest tests/ -q"
+      - id: F1-T7
+        title: Fast-forward consolidation/v2 into main
+        owner: ops
+        acceptance: "main HEAD == consolidation/v2 HEAD; consolidation/v2 deleted"
+        verification: "git rev-parse main; test -z $(git rev-parse --verify consolidation/v2 2>/dev/null || echo '')"
+      - id: F1-T8
+        title: Archive stale branches script + run
+        owner: ops
+        acceptance: "30+ branches archived to refs/archive/codex/*; local and remote branches removed"
+        verification: "bash: [[ $(git branch --list 'codex/*' | wc -l) -le 3 ]]"
+      - id: F1-T9
+        title: Explicit decision on boundary branches
+        owner: architect
+        acceptance: "claude/compassionate-driscoll, codex/deterministic-main-isolation, codex/brain-intent-harden-2026-04-09 have explicit disposition recorded"
+        verification: "grep -E 'claude/compassionate-driscoll' docs/audit/BRANCH_FORENSICS.md"
+      - id: F1-T10
+        title: Drop or preserve stashes
+        owner: ops
+        acceptance: "git stash list is either empty or every entry documented"
+      - id: F1-T11
+        title: Unify package manager
+        owner: frontend
+        acceptance: "Only one of bun.lock / pnpm-lock.yaml / package-lock.json remains at repo root"
+        verification: "[[ $(ls bun.lock pnpm-lock.yaml package-lock.json 2>/dev/null | wc -l) -le 1 ]]"
+      - id: F1-T12
+        title: Move python-core/runtime_config.json to deprecated/
+        owner: backend
+        acceptance: "python-core/runtime_config.json no longer exists"
+        verification: "test ! -f python-core/runtime_config.json"
+
+  - id: F2
+    name: Real persistence
+    status: pending
+    depends_on: [F1]
+    tasks:
+      - id: F2-T1
+        title: Add alembic + init migrations dir
+        owner: backend
+        acceptance: "python-core/persistence/migrations/env.py exists; alembic in pyproject.toml"
+      - id: F2-T2
+        title: Baseline migration 20260422_01
+        owner: backend
+        acceptance: "alembic upgrade head on clean DB creates baseline tables identical to current 001+002"
+      - id: F2-T3
+        title: Migration 20260422_02 turns_events
+        owner: backend
+        acceptance: "Tables turns, segments, brain_plans, evidence_packs, emission_contracts, emissions, event_log (v2), outbox, contract_versions exist with indexes"
+      - id: F2-T4
+        title: Migration 20260422_03 latency_extensions
+        owner: backend
+        acceptance: "latency_metrics.turn_id and trace_id columns exist; view exchanges_compat works"
+      - id: F2-T5
+        title: persistence/db.py with fail-loud startup
+        owner: backend
+        acceptance: "Backend exits non-zero on DB unreachable unless INTERVIEW_COACH_DB_REQUIRED=false"
+      - id: F2-T6
+        title: persistence/outbox.py with NDJSON fallback
+        owner: backend
+        acceptance: "With DB down, events accumulate in .runtime/outbox.ndjson; on DB up, drained automatically"
+      - id: F2-T7
+        title: persistence/event_writer.py
+        owner: backend
+        acceptance: "Every PipelineEvent call writes to event_log (via outbox)"
+      - id: F2-T8
+        title: persistence/session_store.py
+        owner: backend
+        acceptance: "CRUD for sessions, turns, segments, brain_plans, emission_contracts, emissions, evidence_packs"
+      - id: F2-T9
+        title: config/runtime.py single-source
+        owner: backend
+        acceptance: "Only XDG path is read; legacy repo runtime_config.json no longer referenced"
+      - id: F2-T10
+        title: config/providers.py loader
+        owner: backend
+        acceptance: "providers.yaml parsed into typed registry"
+      - id: F2-T11
+        title: Remove storage/persist_queue.py usages
+        owner: backend
+        acceptance: "grep -r 'persist_queue' python-core/ returns only deprecation notice or empty"
+      - id: F2-T12
+        title: docker-compose changes
+        owner: ops
+        acceptance: "Backend runs alembic upgrade head before uvicorn; postgres service no longer mounts migrations dir"
+      - id: F2-T13
+        title: migrate_exchanges_to_v2.py
+        owner: backend
+        acceptance: "Historical exchanges produce corresponding synthetic turn+brain_plan+emission_contract+emission rows"
+      - id: F2-T14
+        title: run_db_smoke.py
+        owner: backend
+        acceptance: "Script creates 3-turn fake session and asserts row counts"
+      - id: F2-T15
+        title: tests/integration/test_persistence_roundtrip.py
+        owner: backend
+        acceptance: "Create, restart, reload same session; state reconstructed"
+      - id: F2-T16
+        title: tests/integration/test_outbox_resilience.py
+        owner: backend
+        acceptance: "DB down -> NDJSON -> DB up -> drained; zero lost events"
+
+  - id: F3
+    name: Break god-objects
+    status: pending
+    depends_on: [F2]
+    tasks:
+      - id: F3-T1
+        title: Extract _LiveSessionSTTManager to pipeline/orchestrator.py
+        owner: backend
+        acceptance: "pipeline/orchestrator.py <= 1500 LOC; server.py no longer contains that class"
+      - id: F3-T2
+        title: Split HTTP routes into api/http/*
+        owner: backend
+        acceptance: "server.py does not define any @app.get/post/put decorator"
+      - id: F3-T3
+        title: Split WS into api/ws/live_session.py
+        owner: backend
+        acceptance: "WS handler lives in api/ws/live_session.py"
+      - id: F3-T4
+        title: Move HR-1 live caption to api/ws/live_caption.py EXACT copy
+        owner: backend
+        acceptance: "Code byte-identical except imports; comments note HR-1 FROZEN; regression test passes"
+      - id: F3-T5
+        title: api/__init__.py factory
+        owner: backend
+        acceptance: "create_app() assembles http+ws, lifespan consolidated; main.py imports from api"
+      - id: F3-T6
+        title: main.py entrypoint
+        owner: backend
+        acceptance: "uvicorn main:app boots the same app previously from api.server:app"
+      - id: F3-T7
+        title: Decompose App.tsx into pages
+        owner: frontend
+        acceptance: "App.tsx <= 400 LOC; LiveSession/ManualCoach/Settings/Insights as separate components"
+      - id: F3-T8
+        title: useWsSession hook
+        owner: frontend
+        acceptance: "Hook handles reconnect, heartbeat; used by LiveSession"
+      - id: F3-T9
+        title: useConversationState hook
+        owner: frontend
+        acceptance: "Reducer-based; live caption feed preserved"
+      - id: F3-T10
+        title: LiveCaption component intact
+        owner: frontend
+        acceptance: "Visual and timing behavior identical (HR-1)"
+
+  - id: F4
+    name: Brain v2 + Emit separation + EndOfTurnDetector
+    status: pending
+    depends_on: [F3]
+    tasks:
+      - id: F4-T1
+        title: contracts/v2/*
+        owner: backend
+        acceptance: "BrainPlan v2, EmissionContract, GeneratedResponse v2, PipelineEvent discriminated union"
+      - id: F4-T2
+        title: brain/intent_tracker.py
+        owner: backend
+        acceptance: "Emits AskHypothesis with delta_from_prev"
+      - id: F4-T3
+        title: brain/ask_decomposer.py
+        owner: backend
+        acceptance: "Handles compound asks into primary+secondaries"
+      - id: F4-T4
+        title: brain/context_window.py
+        owner: backend
+        acceptance: "HR-2 compliant: 4 if >=4 else all; DB-backed"
+      - id: F4-T5
+        title: brain/planner.py
+        owner: backend
+        acceptance: "plan_from_turn + plan_draft_from_hypothesis"
+      - id: F4-T6
+        title: brain/quality.py
+        owner: backend
+        acceptance: "Quality gate over BrainPlan"
+      - id: F4-T7
+        title: emit/emission_contract.py model
+        owner: backend
+        acceptance: "Pydantic model per DATA_MODEL_REDESIGN"
+      - id: F4-T8
+        title: emit/builder.py
+        owner: backend
+        acceptance: "Deterministic BrainPlan -> EmissionContract (LLM not required)"
+      - id: F4-T9
+        title: emit/quality_gate.py readiness
+        owner: backend
+        acceptance: "Score function per LIVE_PIPELINE_REDESIGN §7"
+      - id: F4-T10
+        title: emit/renderer.py LLM call
+        owner: backend
+        acceptance: "Renders full_response + bullets preview"
+      - id: F4-T11
+        title: emit/style.py
+        owner: backend
+        acceptance: "Mixed/executive/technical/commercial styles"
+      - id: F4-T12
+        title: turn/{segment,turn}.py models
+        owner: backend
+        acceptance: "Pydantic models"
+      - id: F4-T13
+        title: turn/assembler.py
+        owner: backend
+        acceptance: "STT events -> segments -> turn"
+      - id: F4-T14
+        title: turn/end_of_turn.py
+        owner: backend
+        acceptance: "Multi-signal detector with weights configurable"
+      - id: F4-T15
+        title: Feature flag INTERVIEW_COACH_BRAIN_V2
+        owner: backend
+        acceptance: "config/runtime.py exposes flag; default false"
+      - id: F4-T16
+        title: orchestrator cutover
+        owner: backend
+        acceptance: "Flag on -> v2 path; flag off -> legacy"
+      - id: F4-T17
+        title: Unit tests v2
+        owner: backend
+        acceptance: "test_end_of_turn_detector, test_intent_tracker, test_planner_deterministic, test_builder_from_plan, test_emit_readiness"
+      - id: F4-T18
+        title: Integration test v2 end-to-end
+        owner: backend
+        acceptance: "Full pipeline v2 test passes"
+      - id: F4-T19
+        title: A/B harness on fixtures
+        owner: backend
+        acceptance: "50 fixture questions run through v1 and v2; report generated in docs/audit/ab_report.md"
+
+  - id: F5
+    name: Observability + replay
+    status: pending
+    depends_on: [F4]
+    tasks:
+      - id: F5-T1
+        title: observability/tracing.py OTel
+        owner: backend
+        acceptance: "OTel spans visible via OTLP exporter"
+      - id: F5-T2
+        title: observability/metrics.py Prometheus
+        owner: backend
+        acceptance: "/metrics exposes ic_latency_ms, ic_emit_prematures_total, ic_brain_plan_stability, etc."
+      - id: F5-T3
+        title: observability/logs.py structured JSON
+        owner: backend
+        acceptance: "Every log line is JSON with session_id, turn_id, trace_id"
+      - id: F5-T4
+        title: /metrics endpoint
+        owner: backend
+        acceptance: "curl localhost:8787/metrics returns text/plain with metrics"
+      - id: F5-T5
+        title: docker-compose observability profile
+        owner: ops
+        acceptance: "profile dev: jaeger, prometheus, grafana up"
+      - id: F5-T6
+        title: scripts/replay_session.py
+        owner: backend
+        acceptance: "Reconstructs brain_plans from event_log with <=5% semantic diff"
+      - id: F5-T7
+        title: Grafana dashboards versioned
+        owner: ops
+        acceptance: "docs/observability/dashboards/*.json committed"
+
+  - id: F6
+    name: Desktop audio blocker
+    status: pending
+    depends_on: [F2]
+    tasks:
+      - id: F6-T1
+        title: Validate macos_capture + router end-to-end
+        owner: backend
+        acceptance: "Automated test with BlackHole or loopback proves audio arrives to stt adapter"
+      - id: F6-T2
+        title: Audio metrics instrumentation
+        owner: backend
+        acceptance: "ic_audio_chunks_received_total{source} exported"
+      - id: F6-T3
+        title: 10-minute real meeting capture
+        owner: backend
+        acceptance: ">=80 segments with correct language detection"
+      - id: F6-T4
+        title: UI banner when audio silence
+        owner: frontend
+        acceptance: "If audio chunks == 0 for 5s in active session, banner shown"
+      - id: F6-T5
+        title: macOS permissions documented
+        owner: ops
+        acceptance: "docs/SUPPORT_MATRIX.md updated with macOS 13/14/15 matrix"

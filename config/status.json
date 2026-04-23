@@ -1,15 +1,18 @@
 {
   "project": "Interview Coach",
-  "version": "0.9.0-alpha",
-  "architecture_version": "3.2.1 (FROZEN)",
-  "last_updated": "2026-03-16T21:42:00Z",
-  "execution_sequence": ["R1", "R2", "R3", "R4", "R5", "R6", "R7"],
-  "current_phase": "R2",
-  "phase_name": "Runtime LLM/STT provider configuration",
-  "last_approved_task": "R1-ALIGN-PRODUCT-TRUTH-01",
-  "active_task": "R2-CONFIG-LLM-STT-01",
-  "next_task": "R3-MANUAL-REAL-01",
-  "active_gate": "GN0",
+  "version": "0.9.1-audit",
+  "architecture_version": "4.0.0-draft",
+  "architecture_version_prior": "3.2.1 (FROZEN)",
+  "last_updated": "2026-04-22",
+  "audit_authored_at": "2026-04-22",
+  "execution_sequence_legacy": ["R1", "R2", "R3", "R4", "R5", "R6", "R7"],
+  "execution_sequence": ["F0", "F1", "F2", "F3", "F4", "F5", "F6"],
+  "current_phase": "F0",
+  "phase_name": "Audit artifacts",
+  "last_approved_task": "F0-T11",
+  "active_task": "F0-REVIEW",
+  "next_task": "F1-T1",
+  "active_gate": "GF0",
   "canonical_validation_target": "tauri-desktop",
   "product_ui": "tauri",
   "preview_port": 3100,
@@ -28,10 +31,21 @@
     "live_latency_instrumentation": "partial",
     "live_session_persistence": "stub",
     "live_product_e2e_validated": false,
-    "interview_context_persistence": "functional",
+    "interview_context_persistence": "partial",
     "database_connected": false,
     "api_keys_configured": true,
-    "deepgram_api_key_available": true
+    "deepgram_api_key_available": true,
+    "brain_emit_separation": "stub",
+    "event_sourcing": "stub",
+    "outbox_pattern": "stub",
+    "end_of_turn_detector_multisignal": "stub",
+    "intent_tracker_progressive": "stub",
+    "replay_capable": "stub",
+    "single_source_runtime_config": "partial",
+    "god_objects_broken_up": "stub",
+    "branches_consolidated": "stub",
+    "repo_hygiene": "stub",
+    "alembic_migrations_adopted": "stub"
   },
   "preserved_progress": [
     "backend live STT qualified runtime path exists",
@@ -40,8 +54,17 @@
     "STT adapter connects to Deepgram and processes audio",
     "Pipeline produces transcript -> analysis -> suggestion events"
   ],
-  "current_blocker": "Desktop live system audio path not wired end-to-end - real system audio capture from meeting apps not connected to canonical desktop path. Microphone is secondary/optional. Cannot validate live product without desktop system audio bridge functional.",
-  "phase_status": {
+  "current_blocker": "Desktop live system audio path not wired end-to-end - real system audio capture from meeting apps not connected to canonical desktop path. Underneath: persistence is ephemeral (no turns/segments/brain_plans persisted), config has dual source (XDG + repo), ~60 stale branches, server.py + live_brain_service.py are god-objects.",
+  "active_root_causes": {
+    "CR-1": "Persistence ephemeral by design (in-memory queue, exchanges-only post-hoc)",
+    "CR-2": "Dual source for runtime_config (XDG vs repo)",
+    "CR-3": "God-objects: server.py 13129 LOC, live_brain_service.py 8025 LOC, App.tsx 3833 LOC",
+    "CR-4": "brain and emit coupled; BrainPlan has 40+ fields mixing semantics and render",
+    "CR-5": "ConversationTracker in-memory only (HR-2 admits transitional)",
+    "CR-6": "Repo hygiene destroyed: 60+ branches, binaries committed, loose stashes",
+    "CR-7": "Silence and intent modeled as reactive patches, not unified EoT detector"
+  },
+  "phase_status_legacy": {
     "R1": {"name": "Product truth alignment", "status": "completed"},
     "R2": {"name": "Runtime LLM/STT provider configuration", "status": "completed"},
     "R3": {"name": "Manual mode with real providers", "status": "in_progress"},
@@ -49,6 +72,40 @@
     "R5": {"name": "Real STT on desktop path", "status": "pending"},
     "R6": {"name": "Speaker/turn detection", "status": "pending"},
     "R7": {"name": "Live response usefulness", "status": "pending"}
+  },
+  "phase_status": {
+    "F0": {"name": "Audit artifacts", "status": "completed", "started_at": "2026-04-22", "completed_at": "2026-04-22", "tasks_done": 11},
+    "F1": {"name": "Repo hygiene + branch consolidation", "status": "pending"},
+    "F2": {"name": "Real persistence", "status": "pending"},
+    "F3": {"name": "Break god-objects", "status": "pending"},
+    "F4": {"name": "Brain v2 + Emit separation + EndOfTurnDetector", "status": "pending"},
+    "F5": {"name": "Observability + replay", "status": "pending"},
+    "F6": {"name": "Close desktop audio blocker", "status": "pending", "depends_on": ["F2"]}
+  },
+  "truth_labels_v2": {
+    "runtime_config_dual_source": "partial",
+    "persist_queue_in_memory_only": "stub",
+    "event_log_populated_by_pipeline": "stub",
+    "brain_emit_contracts_separated": "stub",
+    "end_of_turn_detector_multisignal": "stub",
+    "replay_capable": "stub",
+    "outbox_pattern": "stub",
+    "alembic_migrations_adopted": "stub",
+    "server_py_split": "stub",
+    "app_tsx_split": "stub"
+  },
+  "artifacts": {
+    "audit_report": "docs/audit/AUDIT_REPORT.md",
+    "branch_forensics": "docs/audit/BRANCH_FORENSICS.md",
+    "target_architecture": "docs/audit/TARGET_ARCHITECTURE.md",
+    "live_pipeline_redesign": "docs/audit/LIVE_PIPELINE_REDESIGN.md",
+    "data_model_redesign": "docs/audit/DATA_MODEL_REDESIGN.md",
+    "implementation_plan": "docs/audit/IMPLEMENTATION_PLAN.md",
+    "execution_plan": "docs/audit/execution_plan.yaml",
+    "adr_001": "docs/adr/ADR-001-brain-emit-separation.md",
+    "adr_002": "docs/adr/ADR-002-stt-provider-strategy.md",
+    "adr_003": "docs/adr/ADR-003-event-sourced-persistence.md",
+    "plan_master": ".kilo/plans/1776898569349-lucky-river.md"
   },
   "r1_align_product_truth_01": {
     "description": "Align authoritative files to consistent product truth - system audio is primary, microphone is secondary/optional, full_response is primary artifact",
@@ -63,10 +120,9 @@
     "description": "Runtime LLM/STT provider configuration API and UI",
     "status": "completed",
     "evidence": [
-      "Backend GET/PUT /api/runtime-config endpoints exist (server.py lines 322, 335)",
+      "Backend GET/PUT /api/runtime-config endpoints exist",
       "Frontend SettingsPanel.tsx has full UI for provider/model/API key configuration",
-      "Adapters read from runtime_config.json (llm_adapter.py, stt_adapter.py)",
-      "python-core/runtime_config.json exists with valid config",
+      "Adapters read from runtime_config.json (to be consolidated in F2 to XDG single source)",
       "api_keys_configured: true in runtime_state"
     ]
   }
