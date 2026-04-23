@@ -1,7 +1,32 @@
 """
-Interview Coach - Persist Queue
-Durable queue for database writes with retry and drop-oldest policy
+Interview Coach - Persist Queue  [DEPRECATED — use persistence.outbox]
+
+.. deprecated:: 0.9.1-audit (2026-04-22)
+   The in-memory queue semantics of this module (``list`` backing + drop-oldest
+   at 100 items) are incompatible with the durability guarantees required by
+   ADR-003. All pipeline writes must now go through
+   :mod:`persistence.event_writer` and :mod:`persistence.outbox`.
+
+   This module is preserved as a shim during the F2 transition window so that
+   any unanticipated import keeps working. The classes below still do the same
+   thing they always did (in-memory). They emit a ``DeprecationWarning`` once
+   at import time. Prefer::
+
+       from persistence.event_writer import write_event
+       from persistence import outbox
+       await outbox.enqueue("turns", payload)
+
+   Scheduled for removal in the release following F2-T20.
 """
+
+import warnings
+
+warnings.warn(
+    "storage.persist_queue is deprecated; use persistence.event_writer "
+    "and persistence.outbox instead (see ADR-003).",
+    DeprecationWarning,
+    stacklevel=2,
+)
 import asyncio
 import time
 from dataclasses import dataclass, field
@@ -24,6 +49,7 @@ class QueueItemStatus(str, Enum):
 @dataclass
 class QueueItem:
     """An item in the persistence queue"""
+
     id: str
     data: dict
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -37,19 +63,19 @@ class QueueItem:
 class PersistQueue:
     """
     Durable queue for database writes.
-    
+
     Features:
     - Retry with exponential backoff (max 3 attempts)
     - Drop-oldest policy when queue is full (>100 items)
     - Logs dropped items for manual recovery
-    
+
     Trade-off (V1): Under extreme pressure, oldest items are dropped.
     This is acceptable because:
     1. The live interview is not blocked
     2. Dropped items are logged for recovery
     3. In normal conditions, queue never fills
     """
-    
+
     def __init__(
         self,
         max_size: int = 100,
@@ -64,7 +90,7 @@ class PersistQueue:
         self._is_processing = False
         self._processor: Optional[Callable] = None
         self._process_task: Optional[asyncio.Task] = None
-        
+
         # Statistics
         self._stats = {
             "enqueued": 0,
@@ -72,52 +98,52 @@ class PersistQueue:
             "failed": 0,
             "dropped": 0,
         }
-    
+
     def enqueue(self, data: dict) -> QueueItem:
         """
         Add an item to the queue.
-        
+
         If queue is full, drops the oldest item and logs it.
         """
         # Generate unique ID
         self._counter += 1
         item_id = f"item_{self._counter}_{int(time.time() * 1000)}"
-        
+
         item = QueueItem(
             id=item_id,
             data=data,
             max_attempts=self._max_attempts,
         )
-        
+
         # Check if queue is full
         if len(self._queue) >= self._max_size:
             # Drop oldest item
             dropped = self._queue.pop(0)
             dropped.status = QueueItemStatus.DROPPED
             self._stats["dropped"] += 1
-            
+
             logger.warning(
                 f"[PersistQueue] Dropped oldest item due to queue overflow: "
                 f"id={dropped.id}, data={dropped.data}"
             )
-        
+
         self._queue.append(item)
         self._stats["enqueued"] += 1
-        
+
         return item
-    
+
     def set_processor(self, processor: Callable[[dict], Any]):
         """Set the function that processes queue items"""
         self._processor = processor
-    
+
     async def start_processing(self):
         """Start the background processor"""
         if self._is_processing:
             return
-        
+
         self._is_processing = True
         self._process_task = asyncio.create_task(self._process_loop())
-    
+
     async def stop_processing(self):
         """Stop the background processor"""
         self._is_processing = False
@@ -128,7 +154,7 @@ class PersistQueue:
             except asyncio.CancelledError:
                 pass
             self._process_task = None
-    
+
     async def _process_loop(self):
         """Background loop that processes queue items"""
         while self._is_processing:
@@ -138,55 +164,55 @@ class PersistQueue:
             except Exception as e:
                 logger.error(f"[PersistQueue] Error in process loop: {e}")
                 await asyncio.sleep(1)
-    
+
     async def _process_next(self):
         """Process the next pending item in the queue"""
         if not self._processor:
             return
-        
+
         # Find next pending item
         pending = None
         for item in self._queue:
             if item.status == QueueItemStatus.PENDING:
                 pending = item
                 break
-        
+
         if not pending:
             return
-        
+
         # Check backoff
         if pending.last_attempt_at:
             elapsed_ms = (datetime.utcnow() - pending.last_attempt_at).total_seconds() * 1000
-            backoff_ms = self._backoff_base_ms * (2 ** pending.attempts)
+            backoff_ms = self._backoff_base_ms * (2**pending.attempts)
             if elapsed_ms < backoff_ms:
                 return  # Not ready yet
-        
+
         # Process item
         pending.status = QueueItemStatus.PROCESSING
         pending.attempts += 1
         pending.last_attempt_at = datetime.utcnow()
-        
+
         try:
             await self._processor(pending.data)
             pending.status = QueueItemStatus.COMPLETED
             self._queue.remove(pending)
             self._stats["completed"] += 1
-            
+
         except Exception as e:
             pending.last_error = str(e)
-            
+
             if pending.attempts >= pending.max_attempts:
                 pending.status = QueueItemStatus.FAILED
                 self._queue.remove(pending)
                 self._stats["failed"] += 1
-                
+
                 logger.error(
                     f"[PersistQueue] Item failed after {pending.attempts} attempts: "
                     f"id={pending.id}, error={e}"
                 )
             else:
                 pending.status = QueueItemStatus.PENDING
-    
+
     def get_stats(self) -> dict:
         """Get queue statistics"""
         return {
@@ -195,7 +221,7 @@ class PersistQueue:
             "pending": sum(1 for i in self._queue if i.status == QueueItemStatus.PENDING),
             "processing": sum(1 for i in self._queue if i.status == QueueItemStatus.PROCESSING),
         }
-    
+
     def flush(self) -> list[QueueItem]:
         """
         Flush all pending items.

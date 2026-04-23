@@ -1,6 +1,13 @@
 # Interview Coach - Docker Compose Configuration
 # PostgreSQL 17 + pgvector extension
 # Single data backbone for all persistent storage
+#
+# F2-T12: migrations are now driven by Alembic from the backend side, not by
+# the Postgres init path. Devs that run the backend locally (outside Docker)
+# apply migrations with:
+#   cd python-core && alembic -c persistence/migrations/alembic.ini upgrade head
+# The `backend` service below (optional, profile=app) runs the same step on
+# container start.
 
 services:
   postgres:
@@ -11,22 +18,60 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-interview_coach}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-interview_coach_dev}
       POSTGRES_DB: ${POSTGRES_DB:-interview_coach}
-      # Performance tuning for development
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./python-core/storage/migrations:/docker-entrypoint-initdb.d:ro
+      # Legacy mount removed in F2-T12 — Alembic is now the single source of
+      # DDL changes. See docs/audit/DATA_MODEL_REDESIGN.md §3.3.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interview_coach} -d ${POSTGRES_DB:-interview_coach}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-interview_coach} -d ${POSTGRES_DB:-interview_coach}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
+  # ---------------------------------------------------------------------------
+  # Optional backend service (profile: app).
+  #   docker compose --profile app up -d
+  # Runs `alembic upgrade head` before uvicorn. Reads python-core/ from the
+  # host via read-only mount; outbox NDJSON persists in a dedicated volume.
+  # ---------------------------------------------------------------------------
+  backend:
+    profiles: ["app"]
+    image: python:3.11-slim
+    container_name: interview-coach-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app/python-core
+    volumes:
+      - ./python-core:/app/python-core:ro
+      - ./config:/app/config:ro
+      - backend_outbox:/app/.runtime
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-interview_coach}:${POSTGRES_PASSWORD:-interview_coach_dev}@postgres:5432/${POSTGRES_DB:-interview_coach}
+      INTERVIEW_COACH_DB_REQUIRED: "true"
+      INTERVIEW_COACH_OUTBOX_NDJSON: /app/.runtime/outbox.ndjson
+      PYTHONPATH: /app/python-core
+    command: >
+      bash -c "
+        pip install --no-cache-dir -e '.[dev]' &&
+        alembic -c persistence/migrations/alembic.ini upgrade head &&
+        uvicorn main:app --host 0.0.0.0 --port 8787 --log-level info
+      "
+    ports:
+      - "${BACKEND_PORT:-8787}:8787"
+
 volumes:
   postgres_data:
+    driver: local
+  backend_outbox:
     driver: local
 
 networks:
