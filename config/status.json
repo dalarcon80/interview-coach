@@ -45,8 +45,11 @@
     "god_objects_broken_up": "stub",
     "branches_consolidated": "stub",
     "repo_hygiene": "functional",
-    "alembic_migrations_adopted": "stub",
-    "branches_consolidated_f1": "functional"
+    "alembic_migrations_adopted": "functional",
+    "branches_consolidated_f1": "functional",
+    "turns_segments_tables_created": "functional",
+    "brain_plans_emission_contracts_tables_created": "functional",
+    "outbox_table_created": "functional"
   },
   "preserved_progress": [
     "backend live STT qualified runtime path exists",
