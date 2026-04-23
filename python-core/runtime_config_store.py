@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
+_PROFILE_ENV = "INTERVIEW_COACH_PROFILE"
 _RUNTIME_CONFIG_ENV = "INTERVIEW_COACH_RUNTIME_CONFIG_PATH"
 _XDG_CONFIG_ENV = "XDG_CONFIG_HOME"
 _DEFAULT_CONFIG_DIR = "interview-coach"
 _DEFAULT_CONFIG_FILENAME = "runtime_config.json"
+_PROFILES_DIRNAME = "profiles"
+_DEFAULT_PROFILE = "default"
 _LEGACY_CONFIG_PATH = Path(__file__).with_name(_DEFAULT_CONFIG_FILENAME)
 
 
@@ -20,14 +25,58 @@ def _has_runtime_credentials(data: dict[str, Any]) -> bool:
     return bool(llm_api_key or stt_api_key)
 
 
+def sanitize_execution_profile(value: str | None) -> str:
+    cleaned = re.sub(r"[^a-z0-9._-]+", "-", str(value or "").strip().lower()).strip("._-")
+    return cleaned or _DEFAULT_PROFILE
+
+
+def get_execution_profile() -> str:
+    return sanitize_execution_profile(os.environ.get(_PROFILE_ENV, ""))
+
+
+def _get_config_base_dir() -> Path:
+    xdg_config_home = os.environ.get(_XDG_CONFIG_ENV, "").strip()
+    return Path(xdg_config_home).expanduser() if xdg_config_home else Path.home() / ".config"
+
+
+def get_runtime_profile_dir() -> Path:
+    override = os.environ.get(_RUNTIME_CONFIG_ENV, "").strip()
+    if override:
+        return Path(override).expanduser().parent
+
+    base_dir = _get_config_base_dir() / _DEFAULT_CONFIG_DIR
+    profile = get_execution_profile()
+    if profile == _DEFAULT_PROFILE:
+        return base_dir
+    return base_dir / _PROFILES_DIRNAME / profile
+
+
 def get_runtime_config_path() -> Path:
     override = os.environ.get(_RUNTIME_CONFIG_ENV, "").strip()
     if override:
         return Path(override).expanduser()
 
-    xdg_config_home = os.environ.get(_XDG_CONFIG_ENV, "").strip()
-    base_dir = Path(xdg_config_home).expanduser() if xdg_config_home else Path.home() / ".config"
-    return base_dir / _DEFAULT_CONFIG_DIR / _DEFAULT_CONFIG_FILENAME
+    return get_runtime_profile_dir() / _DEFAULT_CONFIG_FILENAME
+
+
+def get_runtime_config_checksum(data: dict[str, Any] | None = None) -> str | None:
+    payload = data if data is not None else load_runtime_config_payload()
+    if not isinstance(payload, dict):
+        return None
+
+    normalized = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def get_runtime_config_metadata() -> dict[str, Any]:
+    path = get_runtime_config_path()
+    payload = load_runtime_config_payload()
+    return {
+        "profile": get_execution_profile(),
+        "config_path": str(path),
+        "config_exists": path.exists(),
+        "config_sha256": get_runtime_config_checksum(payload),
+    }
 
 
 def load_runtime_config_payload() -> dict[str, Any] | None:

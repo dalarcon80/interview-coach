@@ -30,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api-client";
+import { readProfileStorageItem, writeProfileStorageItem } from "@/lib/storageProfile";
 import type {
   ApprovedContextPreview,
   CVVariantPreview,
@@ -102,9 +103,8 @@ function buildWorkspaceStorageKey(candidateProfile: CandidateProfile, companyInf
 }
 
 function readWorkspaceState(key: string): LocalWorkspaceState | null {
-  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = readProfileStorageItem(key);
     return raw ? (JSON.parse(raw) as LocalWorkspaceState) : null;
   } catch {
     return null;
@@ -112,8 +112,7 @@ function readWorkspaceState(key: string): LocalWorkspaceState | null {
 }
 
 function writeWorkspaceState(key: string, value: LocalWorkspaceState): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  writeProfileStorageItem(key, JSON.stringify(value));
 }
 
 function buildAnswerFromFields(fields: Record<string, string> | undefined): string {

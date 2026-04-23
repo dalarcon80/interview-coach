@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { readProfileStorageItem, writeProfileStorageItem } from "@/lib/storageProfile";
 
 const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
@@ -58,7 +59,7 @@ export function QuestionInput({
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+      const raw = readProfileStorageItem(HISTORY_STORAGE_KEY);
       if (!raw) {
         return;
       }
@@ -90,7 +91,7 @@ export function QuestionInput({
 
     setQuestionHistory(updated);
     try {
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      writeProfileStorageItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
     } catch {
       // Ignore storage write errors.
     }

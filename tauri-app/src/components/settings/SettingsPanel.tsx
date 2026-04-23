@@ -15,15 +15,17 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import api from "@/lib/api-client";
+import api, { type RuntimeConfigStatus as RuntimeConfigStatusView } from "@/lib/api-client";
 import {
   loadRuntimeConfig,
   mergeRuntimeConfig,
+  normalizeRuntimeConfig,
   saveRuntimeConfig,
   type RuntimeConfig,
   type LatencyConfig,
   DEFAULT_RUNTIME_CONFIG,
 } from "@/lib/persistence";
+import { getExecutionProfile } from "@/lib/storageProfile";
 
 interface SettingsPanelProps {
   backendUrl: string;
@@ -74,11 +76,6 @@ const LLM_MODELS = {
   ],
 };
 
-const STT_PROVIDERS = [
-  { value: "deepgram", label: "Deepgram (Cloud)" },
-  { value: "whisper_local", label: "Whisper Local" },
-];
-
 const STT_MODELS = {
   deepgram: [
     { value: "nova-3", label: "Nova 3 (Recommended)" },
@@ -92,37 +89,47 @@ const STT_MODELS = {
   ],
 };
 
+type ConfigSyncState = "loading" | "aligned" | "local-draft" | "backend-unavailable";
+
 export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
-  const [config, setConfig] = useState<RuntimeConfig>(DEFAULT_RUNTIME_CONFIG);
+  const [config, setConfig] = useState<RuntimeConfig>(normalizeRuntimeConfig(DEFAULT_RUNTIME_CONFIG));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
   const [ollamaModels, setOllamaModels] = useState<Array<{ id: string; name: string }>>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [syncState, setSyncState] = useState<ConfigSyncState>("loading");
+  const [backendStatus, setBackendStatus] = useState<RuntimeConfigStatusView | null>(null);
+  const executionProfile = getExecutionProfile();
 
   // Load config on mount
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        // First load from local storage
-        const localConfig = loadRuntimeConfig();
+        const localConfig = normalizeRuntimeConfig(loadRuntimeConfig());
         setConfig(localConfig);
 
-        // Then try to fetch from backend
         if (backendUrl) {
           api.setBaseUrl(backendUrl);
           try {
-            const backendConfig = await api.getRuntimeConfig();
+            const [backendConfig, status] = await Promise.all([
+              api.getRuntimeConfig(),
+              api.getRuntimeConfigStatus(),
+            ]);
             if (backendConfig) {
-              const mergedConfig = mergeRuntimeConfig(backendConfig, localConfig);
+              const mergedConfig = normalizeRuntimeConfig(mergeRuntimeConfig(backendConfig, localConfig));
               setConfig(mergedConfig);
               saveRuntimeConfig(mergedConfig);
+              setSyncState("aligned");
             }
+            setBackendStatus(status);
           } catch (e) {
             console.log("Could not fetch runtime config from backend:", e);
+            setSyncState("backend-unavailable");
           }
+        } else {
+          setSyncState("local-draft");
         }
       } catch (e) {
         console.error("Error loading runtime config:", e);
@@ -168,40 +175,46 @@ export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
     setSuccess(false);
 
     try {
-      // Persist locally first so the runtime config survives even if the backend
-      // is temporarily unavailable.
-      saveRuntimeConfig(config);
-
-      // Best-effort sync to the backend.
+      const normalizedConfig = normalizeRuntimeConfig(config);
       if (backendUrl) {
         api.setBaseUrl(backendUrl);
-        await api.updateRuntimeConfig(config);
+        const savedConfig = await api.updateRuntimeConfig(normalizedConfig);
+        const status = await api.getRuntimeConfigStatus();
+        saveRuntimeConfig(savedConfig);
+        setConfig(normalizeRuntimeConfig(savedConfig));
+        setBackendStatus(status);
+        setSyncState("aligned");
+      } else {
+        saveRuntimeConfig(normalizedConfig);
+        setSyncState("local-draft");
       }
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
       console.error("Error saving runtime config:", e);
+      saveRuntimeConfig(normalizeRuntimeConfig(config));
+      setSyncState("local-draft");
       setError(
         e instanceof Error
-          ? `Saved locally, but could not sync to the backend: ${e.message}`
-          : "Saved locally, but could not sync configuration to the backend"
+          ? `Saved locally for profile ${executionProfile}, but the backend is still using its previous configuration: ${e.message}`
+          : `Saved locally for profile ${executionProfile}, but the backend is still using its previous configuration`
       );
     } finally {
       setSaving(false);
     }
-  }, [config, backendUrl]);
+  }, [backendUrl, config, executionProfile]);
 
   const updateLlmConfig = useCallback((updates: Partial<RuntimeConfig["llm"]>) => {
-    setConfig((prev) => ({
-      ...prev,
-      llm: { 
-        ...prev.llm, 
-        ...updates,
-        // Ensure base_url has a default
-        base_url: updates.base_url ?? prev.llm.base_url ?? "http://localhost:11434",
-      },
-    }));
+    setConfig((prev) =>
+      normalizeRuntimeConfig({
+        ...prev,
+        llm: {
+          ...prev.llm,
+          ...updates,
+        },
+      })
+    );
   }, []);
 
   const updateSttConfig = useCallback((updates: Partial<RuntimeConfig["stt"]>) => {
@@ -282,6 +295,28 @@ export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
         </Alert>
       )}
 
+      <Alert>
+        <AlertTitle>Active execution profile</AlertTitle>
+        <AlertDescription>
+          <div className="space-y-1 text-sm">
+            <div>Frontend profile: <span className="font-medium">{executionProfile}</span></div>
+            <div>Config sync state: <span className="font-medium">{syncState}</span></div>
+            {backendStatus && (
+              <>
+                <div>Backend profile: <span className="font-medium">{backendStatus.profile}</span></div>
+                <div>Backend config path: <span className="font-medium">{backendStatus.config_path}</span></div>
+                <div>Backend config checksum: <span className="font-medium">{backendStatus.config_sha256 ?? "missing"}</span></div>
+              </>
+            )}
+            {syncState !== "aligned" && (
+              <div>
+                The backend is the active source of truth. If sync fails, the local draft stays isolated until the next successful save.
+              </div>
+            )}
+          </div>
+        </AlertDescription>
+      </Alert>
+
       {/* LLM Configuration */}
       <Card>
         <CardHeader>
@@ -309,6 +344,7 @@ export function SettingsPanel({ backendUrl }: SettingsPanelProps) {
                 updateLlmConfig({
                   provider: value,
                   model: models?.[0]?.value || "",
+                  base_url: value === "ollama" ? config.llm.base_url || "http://localhost:11434" : "",
                 });
               }}
               disabled={!config.llm.enabled}

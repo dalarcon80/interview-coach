@@ -14,6 +14,7 @@ import websockets
 from adapters.interfaces import STTAdapter, TranscriptionEvent
 from adapters.provider_registry import get_registry, ProviderConfig
 from runtime_config_store import load_runtime_config_payload
+from runtime_flags import audio_pipeline_tracing_enabled
 
 
 class MockSTTAdapter(STTAdapter):
@@ -545,30 +546,32 @@ class DeepgramSTTAdapter(STTAdapter):
 
                     if first_audio_sent_at_ms is None:
                         first_audio_sent_at_ms = now_ms
-                        if first_audio_sent_at_ms > 500:
-                            print(
-                                "[STT][Deepgram] "
-                                f"session_id={self._session_id} first_audio_delay_ms={first_audio_sent_at_ms} "
-                                "warning=initial_audio_delay_exceeded"
-                            )
-                        else:
-                            print(
-                                "[STT][Deepgram] "
-                                f"session_id={self._session_id} first_audio_delay_ms={first_audio_sent_at_ms}"
-                            )
+                        if audio_pipeline_tracing_enabled():
+                            if first_audio_sent_at_ms > 500:
+                                print(
+                                    "[STT][Deepgram] "
+                                    f"session_id={self._session_id} first_audio_delay_ms={first_audio_sent_at_ms} "
+                                    "warning=initial_audio_delay_exceeded"
+                                )
+                            else:
+                                print(
+                                    "[STT][Deepgram] "
+                                    f"session_id={self._session_id} first_audio_delay_ms={first_audio_sent_at_ms}"
+                                )
 
                     cadence_drift_ms = interval_ms - 100 if interval_ms else 0
-                    if interval_ms > 200:
+                    if audio_pipeline_tracing_enabled():
+                        if interval_ms > 200:
+                            print(
+                                "[STT][Deepgram] "
+                                f"session_id={self._session_id} audio_gap_ms={interval_ms} "
+                                "warning=cadence_gap_exceeded"
+                            )
                         print(
                             "[STT][Deepgram] "
-                            f"session_id={self._session_id} audio_gap_ms={interval_ms} "
-                            "warning=cadence_gap_exceeded"
+                            f"session_id={self._session_id} audio_sent_ms={now_ms} "
+                            f"interval_ms={interval_ms} drift_ms={cadence_drift_ms} bytes={len(chunk)}"
                         )
-                    print(
-                        "[STT][Deepgram] "
-                        f"session_id={self._session_id} audio_sent_ms={now_ms} "
-                        f"interval_ms={interval_ms} drift_ms={cadence_drift_ms} bytes={len(chunk)}"
-                    )
                 send_completed = True
 
             async def _keepalive_task():
@@ -587,11 +590,12 @@ class DeepgramSTTAdapter(STTAdapter):
                         await ws.send(json.dumps({"type": "KeepAlive"}))
                         self._keepalive_count += 1
                         last_keepalive_sent_at_ms = now_ms
-                        print(
-                            "[STT][Deepgram] "
-                            f"session_id={self._session_id} keepalive_count={self._keepalive_count} "
-                            f"timestamp_ms={now_ms} idle_ms={idle_ms}"
-                        )
+                        if audio_pipeline_tracing_enabled():
+                            print(
+                                "[STT][Deepgram] "
+                                f"session_id={self._session_id} keepalive_count={self._keepalive_count} "
+                                f"timestamp_ms={now_ms} idle_ms={idle_ms}"
+                            )
                     except Exception:
                         break
 

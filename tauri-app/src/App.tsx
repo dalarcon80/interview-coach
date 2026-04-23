@@ -66,6 +66,11 @@ import {
   loadStyle,
   saveContext,
 } from "@/lib/persistence";
+import {
+  readProfileStorageItem,
+  removeProfileStorageItem,
+  writeProfileStorageItem,
+} from "@/lib/storageProfile";
 import type {
   BackendHealth,
   ContextAnalyzeResponse,
@@ -593,8 +598,7 @@ function formatDuration(seconds: number): string {
 
 function loadConversationHistory(): ConversationEntry[] {
   try {
-    if (typeof window === "undefined") return [];
-    const raw = window.localStorage.getItem(CONVERSATION_HISTORY_STORAGE_KEY);
+    const raw = readProfileStorageItem(CONVERSATION_HISTORY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -618,12 +622,11 @@ function loadConversationHistory(): ConversationEntry[] {
 
 function saveConversationHistory(entries: ConversationEntry[]): void {
   try {
-    if (typeof window === "undefined") return;
     if (entries.length === 0) {
-      window.localStorage.removeItem(CONVERSATION_HISTORY_STORAGE_KEY);
+      removeProfileStorageItem(CONVERSATION_HISTORY_STORAGE_KEY);
       return;
     }
-    window.localStorage.setItem(
+    writeProfileStorageItem(
       CONVERSATION_HISTORY_STORAGE_KEY,
       JSON.stringify(entries.slice(0, MAX_PERSISTED_HISTORY))
     );
@@ -634,8 +637,7 @@ function saveConversationHistory(entries: ConversationEntry[]): void {
 
 function clearConversationHistoryPersistence(): void {
   try {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(CONVERSATION_HISTORY_STORAGE_KEY);
+    removeProfileStorageItem(CONVERSATION_HISTORY_STORAGE_KEY);
   } catch {
     // no-op by design
   }

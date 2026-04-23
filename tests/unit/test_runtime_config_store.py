@@ -1,71 +1,31 @@
-import json
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import patch
 
-import runtime_config_store
-from adapters.stt_adapter import DeepgramSTTAdapter, STTAdapterFactory, WhisperLocalSTTAdapter
-
-
-def test_load_runtime_config_skips_sanitized_legacy_migration(tmp_path, monkeypatch):
-    legacy_path = tmp_path / "legacy_runtime_config.json"
-    legacy_payload = {
-        "llm": {
-            "provider": "anthropic",
-            "model": "claude-sonnet-4-6",
-            "api_key": "",
-            "enabled": True,
-            "base_url": "",
-        },
-        "stt": {
-            "provider": "deepgram",
-            "model": "nova-3",
-            "api_key": "",
-            "enabled": True,
-        },
-    }
-    legacy_path.write_text(json.dumps(legacy_payload), encoding="utf-8")
-
-    local_path = tmp_path / "runtime_config.json"
-    monkeypatch.setenv("INTERVIEW_COACH_RUNTIME_CONFIG_PATH", str(local_path))
-    monkeypatch.setattr(runtime_config_store, "_LEGACY_CONFIG_PATH", legacy_path)
-
-    payload = runtime_config_store.load_runtime_config_payload()
-
-    assert payload is None
-    assert not local_path.exists()
+from runtime_config_store import (
+    get_execution_profile,
+    get_runtime_config_metadata,
+    get_runtime_config_path,
+)
 
 
-def test_stt_adapter_factory_reads_local_settings_store():
-    runtime_payload = {
-        "stt": {
-            "provider": "deepgram",
-            "enabled": True,
-            "api_key": "local-stt-key",
-            "model": "nova-3",
-            "local_enabled": False,
-        }
-    }
+def test_runtime_config_uses_profile_specific_path(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("INTERVIEW_COACH_RUNTIME_CONFIG_PATH", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("INTERVIEW_COACH_PROFILE", "Main Stable")
 
-    with patch("adapters.stt_adapter.load_runtime_config_payload", return_value=runtime_payload):
-        adapter = STTAdapterFactory.create()
+    path = get_runtime_config_path()
 
-    assert isinstance(adapter, DeepgramSTTAdapter)
-    assert adapter._api_key == "local-stt-key"
+    assert path == tmp_path / "xdg" / "interview-coach" / "profiles" / "main-stable" / "runtime_config.json"
+    assert get_execution_profile() == "main-stable"
 
 
-def test_stt_adapter_factory_honors_local_whisper_flag():
-    runtime_payload = {
-        "stt": {
-            "provider": "deepgram",
-            "enabled": True,
-            "api_key": "local-stt-key",
-            "model": "nova-3",
-            "local_enabled": True,
-            "local_model": "small",
-        }
-    }
+def test_runtime_config_override_path_wins(monkeypatch, tmp_path: Path) -> None:
+    override_path = tmp_path / "custom" / "runtime_config.json"
+    monkeypatch.setenv("INTERVIEW_COACH_RUNTIME_CONFIG_PATH", str(override_path))
+    monkeypatch.setenv("INTERVIEW_COACH_PROFILE", "ignored-profile")
 
-    with patch("adapters.stt_adapter.load_runtime_config_payload", return_value=runtime_payload):
-        adapter = STTAdapterFactory.create()
-
-    assert isinstance(adapter, WhisperLocalSTTAdapter)
+    assert get_runtime_config_path() == override_path
+    metadata = get_runtime_config_metadata()
+    assert metadata["config_path"] == str(override_path)
+    assert metadata["profile"] == "ignored-profile"

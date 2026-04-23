@@ -20,6 +20,13 @@ import type {
 } from "@/types";
 import type { RuntimeConfig } from "./persistence";
 
+export interface RuntimeConfigStatus {
+  profile: string;
+  config_path: string;
+  config_exists: boolean;
+  config_sha256: string | null;
+}
+
 const DEFAULT_BACKEND_URL = "http://localhost:8000";
 
 function buildTargetContext(
@@ -569,6 +576,10 @@ class InterviewCoachAPI {
       method: "PUT",
       body: JSON.stringify(config),
     });
+  }
+
+  async getRuntimeConfigStatus(): Promise<RuntimeConfigStatus> {
+    return this.request<RuntimeConfigStatus>("/api/runtime-config/status");
   }
 
   // =============================================================================

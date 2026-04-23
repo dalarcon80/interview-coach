@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-
-function getStorage(): Storage | null {
-  try {
-    if (typeof window === "undefined") return null;
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
+import { getBrowserStorage, getProfileStorageKey } from "@/lib/storageProfile";
 
 /**
  * Like useState but automatically persists to localStorage.
@@ -45,10 +37,10 @@ export function usePersistedState<T>(
   );
 
   const [value, setValue] = useState<T>(() => {
-    const storage = getStorage();
+    const storage = getBrowserStorage();
     if (!storage) return defaultValue;
     try {
-      const raw = storage.getItem(key);
+      const raw = storage.getItem(getProfileStorageKey(key));
       if (raw === null) return defaultValue;
       return fromRaw(raw);
     } catch {
@@ -57,20 +49,20 @@ export function usePersistedState<T>(
   });
 
   useEffect(() => {
-    const storage = getStorage();
+    const storage = getBrowserStorage();
     if (!storage) return;
     try {
-      storage.setItem(key, toRaw(value));
+      storage.setItem(getProfileStorageKey(key), toRaw(value));
     } catch {
       // no-op by design
     }
   }, [key, toRaw, value]);
 
   const clearValue = useCallback(() => {
-    const storage = getStorage();
+    const storage = getBrowserStorage();
     if (storage) {
       try {
-        storage.removeItem(key);
+        storage.removeItem(getProfileStorageKey(key));
       } catch {
         // no-op by design
       }
@@ -80,4 +72,3 @@ export function usePersistedState<T>(
 
   return [value, setValue, clearValue];
 }
-

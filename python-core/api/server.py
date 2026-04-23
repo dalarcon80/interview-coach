@@ -64,7 +64,13 @@ from pipeline.steps.live_evidence_packer import LiveEvidencePacker, LiveEvidence
 from pipeline.steps.live_finalizer import LiveFinalizer, LiveFinalizerConfig
 from pipeline.steps.insights_service import InsightsService
 from storage.insights_store import InsightsStore
-from runtime_config_store import get_runtime_config_path, load_runtime_config_payload, save_runtime_config_payload
+from runtime_config_store import (
+    get_runtime_config_metadata,
+    get_runtime_config_path,
+    load_runtime_config_payload,
+    save_runtime_config_payload,
+)
+from runtime_flags import audio_pipeline_tracing_enabled, caption_event_tracing_enabled
 
 # Import database check function
 from storage.database import check_db_connection, close_db
@@ -96,7 +102,7 @@ class LLMConfig(BaseModel):
     model: str = "claude-sonnet-4-20250514"
     api_key: str = ""
     enabled: bool = True
-    base_url: str = "http://localhost:11434"  # For Ollama
+    base_url: str = ""  # Only used for custom/provider-local endpoints such as Ollama
 
 
 class STTConfig(BaseModel):
@@ -122,6 +128,14 @@ class RuntimeConfig(BaseModel):
     latency: LatencyConfig = LatencyConfig()
 
 
+class RuntimeConfigStatus(BaseModel):
+    """Metadata for the active runtime config profile."""
+    profile: str
+    config_path: str
+    config_exists: bool
+    config_sha256: str | None = None
+
+
 # In-memory runtime config storage (loaded from a local config path on startup)
 _RUNTIME_CONFIG: RuntimeConfig | None = None
 
@@ -132,13 +146,25 @@ _INSIGHTS_SERVICE = InsightsService()
 _INSIGHTS_STORE = InsightsStore()
 
 
+def _normalize_runtime_config(config: RuntimeConfig) -> RuntimeConfig:
+    llm = config.llm.model_copy(deep=True)
+    if llm.provider == "ollama":
+        llm.base_url = (llm.base_url or "").strip() or "http://localhost:11434"
+    elif (llm.base_url or "").strip() == "http://localhost:11434":
+        llm.base_url = ""
+    else:
+        llm.base_url = (llm.base_url or "").strip()
+
+    return config.model_copy(update={"llm": llm})
+
+
 def load_runtime_config() -> RuntimeConfig | None:
     """Load runtime config from file if exists"""
     global _RUNTIME_CONFIG
     try:
         data = load_runtime_config_payload()
         if data is not None:
-            _RUNTIME_CONFIG = RuntimeConfig(**data)
+            _RUNTIME_CONFIG = _normalize_runtime_config(RuntimeConfig(**data))
             print(f"[RuntimeConfig] Loaded from {get_runtime_config_path()}")
             return _RUNTIME_CONFIG
     except Exception as e:
@@ -150,12 +176,14 @@ def save_runtime_config(config: RuntimeConfig) -> RuntimeConfig:
     """Save runtime config to file"""
     global _RUNTIME_CONFIG
     try:
-        save_runtime_config_payload(config.model_dump())
-        _RUNTIME_CONFIG = config
+        normalized = _normalize_runtime_config(config)
+        save_runtime_config_payload(normalized.model_dump())
+        _RUNTIME_CONFIG = normalized
         print(f"[RuntimeConfig] Saved to {get_runtime_config_path()}")
     except Exception as e:
         print(f"[RuntimeConfig] Could not save config: {e}")
-    return config
+        raise
+    return _RUNTIME_CONFIG or _normalize_runtime_config(config)
 
 
 def get_runtime_config() -> RuntimeConfig | None:
@@ -2106,8 +2134,14 @@ async def get_runtime_config_endpoint():
     config = get_runtime_config()
     if config is None:
         # Return default config if not set
-        return RuntimeConfig()
-    return config
+        return _normalize_runtime_config(RuntimeConfig())
+    return _normalize_runtime_config(config)
+
+
+@app.get("/api/runtime-config/status", response_model=RuntimeConfigStatus)
+async def get_runtime_config_status_endpoint():
+    metadata = get_runtime_config_metadata()
+    return RuntimeConfigStatus(**metadata)
 
 
 @app.put("/api/runtime-config", response_model=RuntimeConfig)
@@ -9195,10 +9229,11 @@ class SessionSTTStreamManager:
         if speaker == "interviewer" and self._is_interviewer_caption_source(self._latest_source):
             self._schedule_live_preparation_refresh_debounced()
         
-        print(
-            f"[WS][DISPLAY] live_caption session_id={self._session_id} "
-            f"is_partial={not is_final} speaker={speaker} text='{transcript_text[:80]}'"
-        )
+        if caption_event_tracing_enabled():
+            print(
+                f"[WS][DISPLAY] live_caption session_id={self._session_id} "
+                f"is_partial={not is_final} speaker={speaker} text='{transcript_text[:80]}'"
+            )
 
     async def _handle_transcription_event(self, event: Any) -> None:
         event_type = getattr(event, "event_type", None)
@@ -12508,12 +12543,13 @@ async def websocket_pipeline(websocket: WebSocket):
                 channels = message.get("channels", 1)
                 source = message.get("source", "system")
 
-                print(
-                    "[AUDIO][BACKEND][WS_RECV] "
-                    f"session_id={session_id} timestamp_ms={timestamp} "
-                    f"sample_rate={sample_rate} channels={channels} source={source} "
-                    f"payload_b64_len={len(audio_base64)}"
-                )
+                if audio_pipeline_tracing_enabled():
+                    print(
+                        "[AUDIO][BACKEND][WS_RECV] "
+                        f"session_id={session_id} timestamp_ms={timestamp} "
+                        f"sample_rate={sample_rate} channels={channels} source={source} "
+                        f"payload_b64_len={len(audio_base64)}"
+                    )
                 
                 if not audio_base64:
                     await websocket.send_json({
@@ -12541,11 +12577,12 @@ async def websocket_pipeline(websocket: WebSocket):
                     
                     decoded_audio_len = len(audio_bytes) if audio_bytes else 0
                     
-                    print(
-                        "[AUDIO][BACKEND][DIRECT] "
-                        f"session_id={session_id} timestamp_ms={timestamp} "
-                        f"payload_b64_len={len(audio_base64)} decoded_audio_bytes={decoded_audio_len}"
-                    )
+                    if audio_pipeline_tracing_enabled():
+                        print(
+                            "[AUDIO][BACKEND][DIRECT] "
+                            f"session_id={session_id} timestamp_ms={timestamp} "
+                            f"payload_b64_len={len(audio_base64)} decoded_audio_bytes={decoded_audio_len}"
+                        )
                     
                     # Acknowledge audio data received
                     await websocket.send_json({

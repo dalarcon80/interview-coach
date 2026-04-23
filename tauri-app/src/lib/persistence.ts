@@ -1,4 +1,9 @@
 import type { CandidateProfile, CompanyInfo, InterviewerProfile } from "@/types";
+import {
+  readProfileStorageItem,
+  removeProfileStorageItem,
+  writeProfileStorageItem,
+} from "@/lib/storageProfile";
 
 const DEFAULT_STYLE = "professional";
 const DEFAULT_LANGUAGE = "en";
@@ -70,37 +75,16 @@ export interface InterviewContext {
   backendUrl: string;
 }
 
-function getStorage(): Storage | null {
-  try {
-    if (typeof window === "undefined") return null;
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function safeSetItem(key: string, value: string): void {
-  try {
-    getStorage()?.setItem(key, value);
-  } catch {
-    // no-op by design
-  }
+  writeProfileStorageItem(key, value);
 }
 
 function safeGetItem(key: string): string | null {
-  try {
-    return getStorage()?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
+  return readProfileStorageItem(key);
 }
 
 function safeRemoveItem(key: string): void {
-  try {
-    getStorage()?.removeItem(key);
-  } catch {
-    // no-op by design
-  }
+  removeProfileStorageItem(key);
 }
 
 function parseJson<T>(raw: string | null): T | null {
@@ -330,7 +314,7 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
     model: "claude-sonnet-4-20250514",
     api_key: "",
     enabled: false,
-    base_url: "http://localhost:11434",
+    base_url: "",
   },
   stt: {
     provider: "deepgram",
@@ -349,6 +333,31 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
 function pickString(primary: string | undefined, fallback: string): string {
   const value = typeof primary === "string" ? primary.trim() : "";
   return value ? value : fallback;
+}
+
+function normalizeBaseUrl(
+  provider: RuntimeConfig["llm"]["provider"],
+  baseUrl: string | undefined,
+  fallbackBaseUrl = ""
+): string {
+  const resolvedBaseUrl = pickString(baseUrl, fallbackBaseUrl);
+  if (provider === "ollama") {
+    return resolvedBaseUrl || "http://localhost:11434";
+  }
+
+  return resolvedBaseUrl === "http://localhost:11434" ? "" : resolvedBaseUrl;
+}
+
+export function normalizeRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
+  const provider = config.llm.provider;
+
+  return {
+    ...config,
+    llm: {
+      ...config.llm,
+      base_url: normalizeBaseUrl(provider, config.llm.base_url),
+    },
+  };
 }
 
 function isRuntimeConfig(value: unknown): value is RuntimeConfig {
@@ -377,13 +386,18 @@ function isRuntimeConfig(value: unknown): value is RuntimeConfig {
 }
 
 export function mergeRuntimeConfig(primary: RuntimeConfig, fallback: RuntimeConfig): RuntimeConfig {
+  const provider = pickString(primary.llm.provider, fallback.llm.provider) as RuntimeConfig["llm"]["provider"];
   return {
     llm: {
-      provider: pickString(primary.llm.provider, fallback.llm.provider) as RuntimeConfig["llm"]["provider"],
+      provider,
       model: pickString(primary.llm.model, fallback.llm.model),
       api_key: pickString(primary.llm.api_key, fallback.llm.api_key),
       enabled: primary.llm.enabled,
-      base_url: pickString(primary.llm.base_url, fallback.llm.base_url ?? "http://localhost:11434"),
+      base_url: normalizeBaseUrl(
+        provider,
+        primary.llm.base_url,
+        fallback.llm.provider === provider ? fallback.llm.base_url : ""
+      ),
     },
     stt: {
       provider: pickString(primary.stt.provider, fallback.stt.provider) as RuntimeConfig["stt"]["provider"],
@@ -401,13 +415,13 @@ export function saveRuntimeConfig(config: RuntimeConfig): void {
     safeRemoveItem(STORAGE_KEYS.RUNTIME_CONFIG);
     return;
   }
-  safeSetItem(STORAGE_KEYS.RUNTIME_CONFIG, JSON.stringify(config));
+  safeSetItem(STORAGE_KEYS.RUNTIME_CONFIG, JSON.stringify(normalizeRuntimeConfig(config)));
 }
 
 export function loadRuntimeConfig(): RuntimeConfig {
   const parsed = parseJson<unknown>(safeGetItem(STORAGE_KEYS.RUNTIME_CONFIG));
   if (isRuntimeConfig(parsed)) {
-    return parsed;
+    return normalizeRuntimeConfig(parsed);
   }
   return DEFAULT_RUNTIME_CONFIG;
 }
