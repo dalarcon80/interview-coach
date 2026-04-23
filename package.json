@@ -7,8 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "tauri:dev": "cd tauri-app && npm run tauri dev",
-    "tauri:build": "cd tauri-app && npm run build",
+    "tauri:dev": "cd tauri-app && npm run tauri:dev",
+    "tauri:build": "cd tauri-app && npm run tauri:build",
     "backend:dev": "cd python-core && ../.venv/bin/python main.py"
   },
   "dependencies": {
